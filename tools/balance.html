@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Garage Legends balance check</title>
+  <style>
+    body { font: 14px/1.4 "Segoe UI", system-ui, sans-serif; margin: 24px; background: #121925; color: #f4efe6; }
+    table { border-collapse: collapse; }
+    th, td { padding: 6px 12px; border-bottom: 1px solid #2b3a4f; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    .off { color: #e0483a; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>Balance check</h1>
+  <p>Win rate of a player at the recommended PR with Good launches and shifts. Target 55–85% (GDD §17.2).</p>
+  <div id="out">Running…</div>
+  <h2>Legend Series</h2>
+  <p>Opponent PR ÷ recommended PR for a ~70% win, per rival and distance. Copy into <code>LEGEND.ratio</code>.</p>
+  <pre id="legend">Running…</pre>
+  <script type="module">
+    import { balance, legendBalance } from './balance.js';
+    const rows = balance();
+    document.getElementById('out').innerHTML = `<table>
+      <tr><th>Event</th><th>Rec PR</th><th>Opponent PR</th><th>Suggested</th><th>Win rate</th><th>Silver</th><th>Gold</th></tr>
+      ${rows.map(r => `<tr><td>${r.event}</td><td>${r.rec}</td><td>${r.currentPR}</td><td>${r.oppPR}</td>
+        <td class="${r.winAtCurrent < 0.55 || r.winAtCurrent > 0.85 ? 'off' : ''}">${Math.round(r.winAtCurrent * 100)}%</td>
+        <td>${r.silver}s</td><td>${r.gold}s</td></tr>`).join('')}
+    </table>`;
+    const ratio = legendBalance();
+    document.getElementById('legend').textContent = Object.entries(ratio)
+      .map(([id, r]) => `    ${id}: { ${Object.entries(r).map(([d, v]) => `${d}: ${v}`).join(', ')} },`).join('\n');
+  </script>
+</body>
+</html>

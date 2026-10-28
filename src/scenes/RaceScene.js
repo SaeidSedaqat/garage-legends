@@ -1,0 +1,456 @@
+import { DPR, FONT } from '../config.js';
+import { DIST, ENVS, OPPONENTS, SIM } from '../data.js';
+import { state, carDef, eventDef, tunedSpec, opponentSpec, recordRace } from '../state.js';
+import {
+  makeRacer, step, launch, shift, topGear, zones, launchBand, plannedRev, plannedShift, shiftReady, aiInputs, rng, hash,
+} from '../physics.js';
+import { CarView, MOCKUP, PROPS, cover, addTex, drawGround, drawDashes, drawChecker, drawMarks } from '../art.js';
+import { sfx, engine } from '../audio.js';
+import { platform } from '../platform.js';
+import * as ui from '../ui.js';
+
+const KEYS = new Set(['Space', 'ArrowUp', 'ArrowRight', 'Enter', 'KeyW']);
+const LIGHT = { pre: 0xfff3c4, stage: 0xfff3c4, amber: 0xffb52e, green: 0x4dff7a, red: 0xff3b30 };
+const STAGE_AT = { pre: 0.3, stage: 0.8 };
+const IDLE_RPM = 0.12;
+const LAUNCH_TEXT = { perfect: 'PERFECT LAUNCH!', good: 'GOOD LAUNCH', bog: 'BOG', wheelspin: 'WHEELSPIN', jump: 'JUMP START' };
+const LAUNCH_KIND = { perfect: 'perfect', good: 'good', bog: 'early', wheelspin: 'early', jump: 'foul' };
+const SHIFT_TEXT = { perfect: 'PERFECT SHIFT!', good: 'GOOD SHIFT', early: 'EARLY SHIFT', late: 'LATE SHIFT' };
+
+export class RaceScene extends Phaser.Scene {
+  constructor() { super('race'); }
+
+  init(data) {
+    this.event = eventDef(data.eventId);
+    this.env = ENVS.find(v => v.id === this.event.env);
+    this.D = DIST[this.event.dist].m;
+    this.pSpec = tunedSpec();
+    this.oSpec = opponentSpec(this.event);
+    this.p = makeRacer(this.pSpec);
+    this.o = makeRacer(this.oSpec);
+
+    // every attempt is seeded, so a retry plays differently but any run can be replayed (GDD §6.6)
+    const rand = rng(hash(`${this.event.id}#${state.stats.races}`));
+    this.ai = aiInputs(OPPONENTS[this.event.opp].ai, rand);
+    this.oppPlan = plannedShift(this.oSpec, this.ai.shiftQ(0));
+    // the very first race is coached, with a longer lead-in so there's time to read
+    this.guide = !state.tutorial.raced;
+    // countdown: three ambers with ±150 ms jitter so the rhythm can't be memorised (GDD §6.3)
+    this.ambers = [];
+    let t = (this.guide ? 3 : 1.3) + rand() * 0.3;
+    for (let i = 0; i < 3; i++) { this.ambers.push(t); t += 0.5 + (rand() - 0.5) * 0.3; }
+    this.greenAt = t;
+
+    this.t = 0;
+    this.phase = 'countdown'; // countdown → racing → done
+    this.green = false;
+    this.holding = false;
+    this.jumpAt = null;
+    this.beeps = -1;
+    this.doneT = 0;
+    this.paused = false;
+    this.cam = 0;
+    this.pitch = 0;
+    this.smoke = [];
+  }
+
+  create() {
+    ui.showRace(this.event, this.pSpec, this.oSpec, {
+      down: () => this.down(), up: () => this.up(), pause: () => this.setPaused(true),
+    });
+    this.build();
+    this.scale.on('resize', this.build, this);
+    this.input.on('pointerdown', () => this.down());
+    this.input.on('pointerup', () => this.up());
+    const kb = this.input.keyboard;
+    kb?.on('keydown', e => {
+      if (e.repeat) return;
+      if (KEYS.has(e.code)) this.down();
+      else if (e.code === 'Escape' || e.code === 'KeyP') this.setPaused(!this.paused);
+      else if (e.code === 'KeyR' && this.paused) this.restart();
+    });
+    kb?.on('keyup', e => { if (KEYS.has(e.code)) this.up(); });
+    const onHide = () => { if (document.hidden) this.setPaused(true); };
+    document.addEventListener('visibilitychange', onHide);
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.build, this);
+      document.removeEventListener('visibilitychange', onHide);
+      engine.stop();
+      ui.coachOff();
+    });
+    engine.start();
+    platform.gameplayStart();
+  }
+
+  // ------------------------------------------------------------ layout
+
+  build() {
+    this.root?.destroy();
+    const W = this.scale.width, H = this.scale.height, portrait = H > W * 1.05;
+    const topH = ui.raceTopInset() * DPR, hudH = ui.raceHudHeight() * DPR;
+    const viewH = Math.max(160 * DPR, H - topH - hudH);
+    const L = (this.L = { W, H, portrait });
+    L.horizon = topH + viewH * 0.34;
+    L.trackTop = topH + viewH * 0.5;
+    L.trackBot = topH + viewH;
+    const th = L.trackBot - L.trackTop;
+    L.laneO = L.trackTop + th * 0.36;
+    L.laneP = L.trackTop + th * 0.95;
+    L.carW = Math.min(portrait ? W * 0.47 : W * 0.2, th * 1.15);
+    L.ppm = L.carW / 4.3;
+    L.px = W * (portrait ? 0.66 : 0.45);
+    const D = this.D, env = this.env, night = env.id === 'city' ? 0xa99fd0 : 0xffffff;
+
+    const root = (this.root = this.add.container(0, 0));
+    const image = (key, c, x, y, ox = 0, oy = 0) => {
+      addTex(this, key, c);
+      const im = this.add.image(x, y, key).setOrigin(ox, oy);
+      root.add(im);
+      return im;
+    };
+    // A strip repeated along the track. `mirror` flips every other copy so the ends always match.
+    this.layers = [];
+    const layer = (key, y, factor, scale = 1, mirror = false) => {
+      const P = this.textures.get(key).getSourceImage().width * scale, imgs = [];
+      for (let i = 0; i < Math.ceil(W / P) + 2; i++) {
+        const im = this.add.image(i * P, y, key).setOrigin(0, 1).setScale(scale).setFlipX(mirror && i % 2 === 1).setTint(night);
+        root.add(im);
+        imgs.push(im);
+      }
+      this.layers.push({ imgs, P, factor, period: mirror ? P * 2 : P });
+    };
+    this.world = [];
+    const put = (obj, wx) => { root.add(obj); this.world.push({ obj, wx }); return obj; };
+
+    // painted sky from the mockup sheet, bottom edge sitting on the horizon
+    const sky = this.add.image(0, 0, MOCKUP.key, env.sky);
+    cover(sky, W, L.horizon, 1);
+    root.add(sky);
+    image('r-ground', drawGround(W, H - L.horizon, {
+      track: L.trackTop - L.horizon, laneO: L.laneO - L.horizon, laneP: L.laneP - L.horizon,
+    }, env), 0, L.horizon);
+    // spectators behind the concrete wall: blocks 0.85 m tall, people cut off at the fence
+    const wallBase = L.trackTop + 2 * DPR, wallScale = (0.85 * L.ppm) / PROPS.barrier.red[3];
+    const crowdScale = (1.6 * L.ppm) / PROPS.crowd.crop[3];
+    const wallTop = wallBase - PROPS.barrier.red[3] * wallScale;
+    layer('p-crowd', wallTop + PROPS.crowd.fence * crowdScale * 0.6, 1, crowdScale, true);
+    layer('p-barrier', wallBase, 1, wallScale);
+    const dashH = Math.max(2 * DPR, th * 0.025);
+    addTex(this, 'r-dash', drawDashes(L.ppm, dashH));
+    layer('r-dash', L.trackTop + th * 0.62 + dashH / 2, 1);
+
+    // rubber marks, start and finish lines
+    addTex(this, 'r-marks', drawMarks(L.ppm * 40, th * 0.07));
+    put(this.add.image(0, L.laneP, 'r-marks').setOrigin(0, 1), -4);
+    put(this.add.image(0, L.laneO, 'r-marks').setOrigin(0, 1).setScale(0.92), -4);
+    const cs = L.ppm * 0.5;
+    addTex(this, 'r-check', drawChecker(2, Math.ceil((H - L.trackTop) / cs), cs));
+    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(1, 0), 0);
+    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(0, 0), D);
+    put(this.prop('p-finish', PROPS.finish, (1.35 * L.carW) / PROPS.finish.crop[2], 'FINISH', '#ffffff', 0.55), D)
+      .y = wallBase;
+    for (let d = 100; d < D - 40; d += 100) {
+      put(this.prop('p-sign', { crop: PROPS.sign.crop, panel: PROPS.sign.board }, (1.7 * L.ppm) / PROPS.sign.crop[2], `${d} m`, '#1c2738', 0.5), d)
+        .y = wallBase;
+    }
+
+    // the start lights must stay on screen, even when a narrow phone shows little track ahead
+    const treeScale = (3.4 * L.ppm) / PROPS.tree.crop[3], treeW = PROPS.tree.crop[2] * treeScale;
+    put(this.buildTree(treeScale), Math.min(7, (W - treeW * 0.7 - L.px) / L.ppm)).y = L.trackTop + th * 0.12;
+
+    this.oCar = new CarView(this, `opp-${this.event.opp}`, root);
+    this.oCar.setWidth(L.carW * 0.92);
+    this.smokeLayer = this.add.container(0, 0);
+    root.add(this.smokeLayer);
+    this.smoke = [];
+    this.pCar = new CarView(this, `car-${state.car}`, root);
+    this.pCar.setWidth(L.carW);
+
+    this.render(0);
+  }
+
+  // A prop standing on the ground (origin: bottom center) with text on its blank panel.
+  prop(key, spec, scale, label, color, size) {
+    const [cx, cy, cw, ch] = spec.crop, [px, py, pw, ph] = spec.panel;
+    const c = this.add.container(0, 0);
+    c.add(this.add.image(0, 0, key).setOrigin(0.5, 1).setScale(scale));
+    c.add(this.add.text((px + pw / 2 - cx - cw / 2) * scale, (py + ph / 2 - cy - ch) * scale, label, {
+      fontFamily: FONT, fontSize: `${Math.max(8, Math.round(ph * scale * size))}px`, fontStyle: 'italic 900', color,
+    }).setOrigin(0.5));
+    return c;
+  }
+
+  // The painted tree with its lamps dark; each lamp gets a glowing light laid over it.
+  buildTree(scale) {
+    const T = PROPS.tree, [cx, cy, cw, ch] = T.crop;
+    const c = this.add.container(0, 0);
+    c.add(this.add.image(0, 0, 'p-tree').setOrigin(0.5, 1).setScale(scale));
+    c.add(this.add.text(0, (612 - cy - ch) * scale, 'STAGE', {
+      fontFamily: FONT, fontSize: `${Math.max(7, Math.round(17 * scale))}px`, fontStyle: '900', color: '#ffffff',
+    }).setOrigin(0.5));
+    const rows = ['pre', 'stage', 'amber', 'amber', 'amber', 'green', 'red'];
+    this.lights = { pre: [], stage: [], amber: [[], [], []], green: [], red: [] };
+    let amber = 0;
+    rows.forEach((kind, i) => {
+      for (const col of T.cols) {
+        const x = (col - cx - cw / 2) * scale, y = (T.rows[i] - cy - ch) * scale, r = T.r * scale;
+        const light = this.add.container(x, y, [
+          this.add.circle(0, 0, r * 2.2, LIGHT[kind], 0.3),
+          this.add.circle(0, 0, r, LIGHT[kind]),
+          this.add.circle(-r * 0.3, -r * 0.3, r * 0.35, 0xffffff, 0.6),
+        ]).setVisible(false);
+        c.add(light);
+        if (kind === 'amber') this.lights.amber[amber].push(light);
+        else this.lights[kind].push(light);
+      }
+      if (kind === 'amber') amber++;
+    });
+    return c;
+  }
+
+  // ------------------------------------------------------------ loop
+
+  update(_, deltaMs) {
+    if (this.paused || !this.L) return;
+    const dt = Math.min(deltaMs / 1000, 0.05);
+    const { p, o, D } = this;
+    this.t += dt;
+
+    if (!this.green && this.t >= this.greenAt) {
+      this.green = true;
+      this.phase = 'racing';
+      sfx.green();
+      if (!this.jumpAt) {
+        ui.callout('GO!', 'go');
+        ui.raceMsg(this.holding ? 'Release to launch!' : 'Tap to launch!');
+      }
+    }
+    this.updateTree();
+
+    // revving before launch: the needle climbs while held and falls when released
+    if (!p.launched) {
+      const target = this.holding ? 1 : IDLE_RPM;
+      p.rpm += Math.sign(target - p.rpm) * Math.min(Math.abs(target - p.rpm), (this.holding ? SIM.revRate : SIM.revFall) * dt);
+      if (p.rpm >= 0.99) p.rpm = 0.96 + Math.random() * 0.04; // limiter bounce
+    }
+    if (this.jumpAt != null && !p.launched && this.t >= this.jumpAt) this.launchPlayer(true);
+
+    if (this.green) {
+      for (let left = dt; left > 1e-6; left -= SIM.dt) {
+        const h = Math.min(SIM.dt, left);
+        this.stepOpponent(h);
+        step(p, h, D);
+      }
+    }
+
+    if (p.finished && !this.pDone) {
+      this.pDone = true;
+      ui.callout(o.finished ? 'FINISHED' : 'FIRST!', o.finished ? 'good' : 'finish');
+      ui.raceMsg('Finished!');
+      ui.setPrimary('done');
+    }
+    if (this.phase === 'racing' && p.finished) {
+      this.doneT += dt;
+      // the race ends when both cars are home, or 3 s after the player is (GDD §6.3)
+      if (!o.finished && this.doneT > SIM.postFinish) for (let i = 0; i < 40000 && !o.finished; i++) this.stepOpponent(SIM.dt);
+      if (o.finished && this.doneT > 1.2) this.finish();
+    }
+    if (this.guide) this.coachStep();
+    this.render(dt);
+  }
+
+  // First-race coaching (GDD §2.3): one short instruction at a time, pointing at the button.
+  coachStep() {
+    const p = this.p, band = launchBand(p.spec), z = zones(p.spec);
+    let text = null;
+    if (!p.launched) {
+      if (this.jumpAt != null) text = 'Too early! Wait for green next time';
+      else if (this.green) text = this.holding ? 'RELEASE now!' : 'Tap now!';
+      else if (this.holding) text = p.rpm < band[0] ? 'Keep holding…' : p.rpm <= band[1] ? 'In the yellow band: hold, release on GREEN' : 'Revving high: release on GREEN';
+      else text = this.t >= this.ambers[0] ? 'Press and HOLD now!' : 'When the yellow lights come on, press and HOLD';
+    } else if (!p.shifts.length && !p.finished) {
+      text = p.rpm >= z.good[0] ? 'SHIFT now!' : 'Wait for the green zone, then tap SHIFT';
+    }
+    if (text) ui.coach(document.getElementById('btn-shift'), text);
+    else if (this.coachText) ui.coachOff();
+    this.coachText = text;
+  }
+
+  stepOpponent(h) {
+    const o = this.o;
+    // in the coached first race the rival waits for the player, so a slow first try still wins
+    if (!o.launched && o.time >= this.ai.reaction && (!this.guide || this.p.launched)) {
+      o.rpm = plannedRev(this.oSpec, this.ai.launchQ);
+      launch(o, this.ai.reaction);
+    }
+    if (o.launched && o.shifting <= 0 && !topGear(o) && shiftReady(o, this.oppPlan)) {
+      shift(o);
+      this.oppPlan = plannedShift(this.oSpec, this.ai.shiftQ(o.gear));
+    }
+    step(o, h, this.D);
+  }
+
+  updateTree() {
+    const t = this.t, lit = (arr, on) => arr.forEach(l => l.setVisible(on));
+    lit(this.lights.pre, t >= STAGE_AT.pre);
+    lit(this.lights.stage, t >= STAGE_AT.stage);
+    this.lights.amber.forEach((arr, i) => lit(arr, !this.green && t >= this.ambers[i]));
+    lit(this.lights.green, this.green);
+    this.lights.red[0].setVisible(this.jumpAt != null && !this.p.launched);
+    if (!this.green) {
+      const n = this.ambers.filter(a => t >= a).length - 1;
+      if (n > this.beeps) {
+        this.beeps = n;
+        sfx.amber();
+      }
+    }
+  }
+
+  render(dt) {
+    const { L, p, o } = this;
+    const prevCam = this.cam;
+    this.cam = p.dist;
+    const sx = w => L.px + (w - this.cam) * L.ppm;
+
+    for (const ly of this.layers) {
+      const off = (this.cam * L.ppm * ly.factor) % ly.period;
+      ly.imgs.forEach((im, i) => { im.x = i * ly.P - off; });
+    }
+    for (const { obj, wx } of this.world) obj.x = sx(wx);
+
+    this.pCar.c.setPosition(sx(p.dist), L.laneP);
+    this.oCar.c.setPosition(sx(o.dist), L.laneO);
+    this.pCar.spin((p.v * dt) / 0.31);
+    this.oCar.spin((o.v * dt) / 0.31);
+    this.pitch += (Phaser.Math.Clamp(-p.a * 0.004, -0.05, 0.02) - this.pitch) * Math.min(1, dt * 8);
+    this.pCar.c.rotation = this.pitch;
+
+    // tire smoke off the line, heavy after a wheelspin launch
+    const spin = p.launched && p.launchT < 1.2 ? (p.launchLabel === 'wheelspin' ? 1 : 0.35) * (1 - p.launchT / 1.2) : 0;
+    if (spin > 0 && this.smoke.length < 60 && Math.random() < spin * 1.5) this.puff();
+    const scroll = (this.cam - prevCam) * L.ppm;
+    this.smoke = this.smoke.filter(s => {
+      s.life += dt;
+      if (s.life >= s.max) { s.c.destroy(); return false; }
+      s.c.x += s.vx * dt - scroll;
+      s.c.y += s.vy * dt;
+      s.c.setScale(1 + s.life * 3).setAlpha(0.5 * (1 - s.life / s.max));
+      return true;
+    });
+
+    const z = zones(p.spec);
+    const racing = p.launched && !p.finished && !topGear(p) && p.shifting <= 0;
+    const limiter = racing && p.rpm >= 1;
+    ui.updateRace({
+      rpm: limiter ? 0.96 + Math.random() * 0.04 : p.rpm,
+      gear: p.gear + 1,
+      mph: p.v * 2.237,
+      you: Math.min(1, p.dist / this.D),
+      opp: Math.min(1, o.dist / this.D),
+      zone: racing && p.rpm >= z.perfect[0] && p.rpm <= z.perfect[1] ? 'perfect' : racing && p.rpm >= z.good[0] && p.rpm <= z.good[1] ? 'good' : limiter ? 'limiter' : null,
+      launched: p.launched,
+      inBand: !p.launched && p.rpm >= launchBand(p.spec)[0] && p.rpm <= launchBand(p.spec)[1],
+      gap: p.launched && o.launched ? o.dist - p.dist : null,
+      speed: Math.max(p.v, 1),
+    });
+    engine.set(p.rpm * carDef(state.car).redlineRpm, !p.launched ? 0.45 : p.shifting > 0 || p.finished ? 0.15 : 1);
+  }
+
+  puff() {
+    const L = this.L;
+    const c = this.add.circle(this.pCar.c.x - L.carW * 0.8, L.laneP - L.carW * 0.04, L.carW * 0.05 * (0.7 + Math.random() * 0.6), 0xe8e2da, 0.5);
+    this.smokeLayer.add(c);
+    this.smoke.push({ c, life: 0, max: 0.6 + Math.random() * 0.5, vx: -(30 + Math.random() * 60) * DPR, vy: -(15 + Math.random() * 35) * DPR });
+  }
+
+  // ------------------------------------------------------------ input
+
+  // One input for everything (GDD §10.7): hold to rev, release to launch, tap to shift.
+  down() {
+    if (this.paused || this.phase === 'done') return;
+    const p = this.p;
+    if (!p.launched) {
+      if (this.jumpAt == null) {
+        this.holding = true;
+        if (!this.green) ui.raceMsg('Revving… keep it in the yellow band, release on GREEN');
+      }
+      return;
+    }
+    if (p.finished) return;
+    const q = shift(p);
+    if (!q) return;
+    sfx.shift(q);
+    ui.callout(SHIFT_TEXT[q], q);
+    if (q === 'perfect' && !state.reducedMotion) this.cameras.main.shake(110, 0.003);
+    if (topGear(p)) { ui.setPrimary('done'); ui.raceMsg('Top gear. Hold on!'); }
+  }
+
+  up() {
+    if (!this.holding) return;
+    this.holding = false;
+    if (this.paused || this.p.launched) return;
+    if (this.green) return this.launchPlayer(false);
+    // released before green: a cozy jump start holds the car for a moment (GDD §6.3)
+    this.jumpAt = this.greenAt + SIM.jumpHold;
+    sfx.red();
+    ui.callout('JUMP START', 'foul');
+    ui.raceMsg('Too early! Held at the line…');
+  }
+
+  launchPlayer(jump) {
+    const p = this.p;
+    const label = launch(p, this.t - this.greenAt, jump);
+    ui.callout(LAUNCH_TEXT[label], LAUNCH_KIND[label]);
+    ui.setPrimary('shift');
+    ui.raceMsg('Shift in the green zone');
+  }
+
+  setPaused(on) {
+    if (on === this.paused || this.phase === 'done') return;
+    this.paused = on;
+    this.holding = false;
+    engine.pause(on);
+    if (on) {
+      ui.showPause({
+        resume: () => this.setPaused(false),
+        restart: () => this.restart(),
+        quit: () => { platform.gameplayStop(); this.scene.start('garage'); },
+      });
+    } else {
+      ui.hideModal();
+    }
+  }
+
+  restart() {
+    ui.hideModal();
+    platform.gameplayStop();
+    state.stats.races++; // an abandoned attempt still advances the seed
+    this.scene.restart({ eventId: this.event.id });
+  }
+
+  // ------------------------------------------------------------ result
+
+  finish() {
+    if (this.phase === 'done') return;
+    this.phase = 'done';
+    engine.stop();
+    platform.gameplayStop();
+    const { p, o, event } = this;
+    const won = p.finishTime <= o.finishTime + 0.001;
+    // the guide repeats until the first win
+    if (this.guide) {
+      if (won) state.tutorial.raced = true;
+      ui.coachOff();
+    }
+    const res = recordRace(event, won, p.finishTime, p.shifts.filter(s => s === 'perfect').length);
+    if (won) sfx.win(); else sfx.lose();
+    ui.showResult({
+      won, event, opp: this.oSpec.name, you: p.finishTime, them: o.finishTime,
+      reaction: p.reaction, launch: p.launchLabel, shifts: p.shifts, ...res,
+    }, {
+      again: () => this.scene.restart({ eventId: event.id }),
+      next: res.next ? () => ui.showMatchup(res.next.id) : null,
+      garage: () => this.scene.start('garage'),
+    });
+  }
+}
