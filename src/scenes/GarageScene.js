@@ -1,7 +1,7 @@
 import { DPR, FONT } from '../config.js';
 import { CarView, GARAGE, DECOR, addTex, cover, drawLift, drawLights, drawNeon, drawPosters, drawShelf } from '../art.js';
 import { MILESTONES, WRENCH } from '../data.js';
-import { state, clickValue, earn, tap, totalStars } from '../state.js';
+import { state, clickValue, grabWrench, tap, totalStars } from '../state.js';
 import { bus } from '../events.js';
 import { sfx } from '../audio.js';
 import * as ui from '../ui.js';
@@ -189,7 +189,7 @@ export class GarageScene extends Phaser.Scene {
 
   grabWrench() {
     const { x, y } = this.wrench, value = clickValue() * WRENCH.mult;
-    earn(value, 'fromClicks');
+    grabWrench(value);
     sfx.win();
     this.popup(x, y, `GOLDEN WRENCH +${ui.fmt(value)}`, true);
     this.dropWrench();

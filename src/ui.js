@@ -3,10 +3,11 @@
 import {
   state, changed, carDef, tunedSpec, carPR, stockPR, previewSpec, upgradeLevel, upgradeCost, upgradeLock, buyUpgrade,
   carLock, buyCar, selectCar, totalStars, clickValue, autoRate, autoUnlocked, garageCost, buyGarage,
-  envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave,
+  envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave, achievementProgress,
 } from './state.js';
 import {
   CARS, EVENTS, ENVS, OPPONENTS, DIST, CAR_UPGRADES, MAX_LEVEL, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
+  ACHIEVEMENTS,
 } from './data.js';
 import { pr, zones, launchBand } from './physics.js';
 import { bus } from './events.js';
@@ -44,6 +45,7 @@ const ICONS = {
   warn: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>'),
   cross: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
   star: '<svg viewBox="0 0 24 24"><path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
+  trophy: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
   settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
 };
 
@@ -83,12 +85,13 @@ export function init(g) {
     if (g.tab) tab = g.tab;
     if (g.panel) openPanel(g.panel, true);
   });
-  $('btn-sound').addEventListener('click', () => { sfx.click(); toggleSound(); });
+  $('btn-trophies').insertAdjacentHTML('afterbegin', ICONS.trophy);
+  $('btn-trophies').addEventListener('click', () => { sfx.click(); showAchievements(); });
   $('btn-settings').innerHTML = ICONS.settings;
   $('btn-settings').addEventListener('click', () => { sfx.click(); showSettings(); });
   setMuted(state.muted);
-  renderSound();
   applyMotion();
+  bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
 
   // keyboard: 1/2/3 open Race/Upgrades/Cars, Escape closes the top panel (GDD §10.10)
   window.addEventListener('keydown', e => {
@@ -118,7 +121,6 @@ function toggleSound() {
   state.muted = !state.muted;
   setMuted(state.muted);
   changed('settings');
-  renderSound();
 }
 
 function applyMotion() {
@@ -140,6 +142,7 @@ function renderWallet() {
   if (gc !== lastChip) { $('goal-chip').innerHTML = gc; lastChip = gc; }
   $('nav-upgrades').classList.toggle('has-badge', upgradeAffordable());
   $('nav-cars').classList.toggle('has-badge', CARS.some(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash));
+  $('btn-trophies').classList.toggle('has-badge', Object.keys(state.achievements).length > (state.achSeen || 0));
   coachUpdate();
 }
 
@@ -162,10 +165,6 @@ function goal() {
   if (legendUnlocked()) return { text: `Legend Series: Round ${state.legend.round}`, panel: 'races', envTab: 'legend' };
   const m = MILESTONES.find(x => x.stars > totalStars());
   return m ? { text: `Earn ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
-}
-
-function renderSound() {
-  $('btn-sound').innerHTML = state.muted ? ICONS.soundOff : ICONS.soundOn;
 }
 
 const sideSheet = () => matchMedia('(min-width: 860px) and (orientation: landscape)').matches;
@@ -473,18 +472,38 @@ export function showMatchup(id) {
   coachUpdate();
 }
 
+// ---------------------------------------------------------------- achievements
+
+export function showAchievements() {
+  const done = ACHIEVEMENTS.filter(a => state.achievements[a.id]).length;
+  state.achSeen = Object.keys(state.achievements).length;
+  changed('settings');
+  const num = n => (n >= 1e4 ? fmt(n).slice(1) : n.toLocaleString('en-US'));
+  const rows = ACHIEVEMENTS.map(a => {
+    const got = !!state.achievements[a.id], p = achievementProgress(a);
+    return `<div class="ach ${got ? 'on' : ''}">
+      <div class="ach-icon">${got ? ICONS.trophy : ICONS.lock}</div>
+      <div class="ach-info"><b>${a.name}</b><small>${a.desc}</small>
+        ${got || a.goal === 1 ? '' : `<div class="bar"><i style="width:${(p / a.goal) * 100}%"></i></div><small>${num(Math.floor(p))} / ${num(a.goal)}</small>`}</div>
+      <span class="ach-reward">${got ? ICONS.check : a.reward ? fmt(a.reward) : ''}</span>
+    </div>`;
+  }).join('');
+  modal(`<div class="result-title">Achievements</div><div class="result-sub">${done} / ${ACHIEVEMENTS.length} unlocked</div>
+    <div class="ach-list">${rows}</div>
+    <div class="actions"><button class="btn go" data-m="close">Close</button></div>`, { close: coachUpdate });
+}
+
 // ---------------------------------------------------------------- settings
 
 export function showSettings() {
   const s = state.stats;
   const toggle = (id, on, label, desc) => `<button class="set-row" data-set="${id}"><span><b>${label}</b><small>${desc}</small></span><i class="switch ${on ? 'on' : ''}"></i></button>`;
-  const unit = u => `<button data-set="${u}" class="${state.units === u ? 'on' : ''}">${u === 'mph' ? 'MPH' : 'KM/H'}</button>`;
-  modal(`
+  const unit = u => `<button data-set="${u}" class="${state.units === u ? 'on' : ''}">${u === 'mph' ? 'MPH' : 'KM/H'}</button>`;  modal(`
     <div class="result-title">Settings</div>
     <div class="set-list">
       ${toggle('sound', !state.muted, 'Sound', 'Engine, lights and effects')}
       ${toggle('motion', state.reducedMotion, 'Reduce motion', 'Fewer shakes, bounces and flashes')}
-      <div class="set-row"><span><b>Speed units</b><small>Shown on the speedometer</small></span><span class="seg">${unit('mph')}${unit('kmh')}</span></div>
+      <div class="set-row"><span><b>Speed units</b><small>Shown on the speedometer</small></span><span class="seg">${unit('kmh')}${unit('mph')}</span></div>
     </div>
     <div class="rows">
       <div class="row"><span>Races</span><span>${s.races} · ${s.wins} won</span></div>
@@ -504,7 +523,7 @@ export function showSettings() {
     const k = b.dataset.set;
     if (k === 'sound') { toggleSound(); b.querySelector('.switch').classList.toggle('on', !state.muted); return; }
     if (k === 'motion') state.reducedMotion = !state.reducedMotion;
-    if (k === 'mph' || k === 'kmh') state.units = k;
+    if (k === 'mph' || k === 'kmh') { state.units = k; state.unitsChosen = true; }
     if (k === 'reset') {
       if (b.dataset.armed) return resetSave();
       b.dataset.armed = '1';
@@ -640,7 +659,7 @@ export function showRace(event, pSpec, oSpec, handlers) {
   $('btn-pause').onclick = () => { sfx.click(); handlers.pause(); };
 }
 
-export function updateRace({ rpm, gear, mph, you, opp, zone, launched, inBand, gap, speed }) {
+export function updateRace({ rpm, gear, mph, you, opp, zone, launched, inBand, gap, speed, nitro }) {
   if (!hud) return;
   hud.needle.setAttribute('transform', `rotate(${(-135 + 270 * Math.min(1, rpm)).toFixed(1)} 50 50)`);
   const l = hud.last;
@@ -658,18 +677,24 @@ export function updateRace({ rpm, gear, mph, you, opp, zone, launched, inBand, g
     b.classList.toggle('ready', key === 'good' || key === 'perfect' || key === 'band');
     b.classList.toggle('over', key === 'limiter');
   }
+  if (l.nitro !== nitro) {
+    l.nitro = nitro;
+    const b = $('btn-shift');
+    for (const k of ['ready', 'chain', 'burn']) b.classList.toggle(`n-${k}`, nitro === k);
+  }
   if (gap != null) {
     const t = -gap / speed, txt = `${t >= 0 ? '+' : '−'}${Math.abs(t).toFixed(2)} s`;
     if (l.gap !== txt) { l.gap = txt; $('race-gap').textContent = txt; $('race-gap').className = `gap ${t >= 0 ? 'ahead' : 'behind'}`; }
   }
 }
 
-export function setPrimary(mode) {
+export function setPrimary(mode, charges = 0) {
   const b = $('btn-shift');
   b.classList.toggle('launch', mode === 'launch');
   b.classList.toggle('done', mode === 'done');
-  $('shift-label').textContent = mode === 'launch' ? 'HOLD' : mode === 'done' ? 'TOP GEAR' : 'SHIFT';
-  $('shift-hint').textContent = mode === 'launch' ? 'release on green' : 'Tap / Space';
+  b.classList.toggle('nitro', mode === 'nitro');
+  $('shift-label').textContent = { launch: 'HOLD', done: 'HOLD ON', nitro: `NITRO ×${charges}` }[mode] || 'SHIFT';
+  $('shift-hint').textContent = { launch: 'release on green', done: 'to the line!', nitro: 'chain on the flash' }[mode] || 'Tap / Space';
 }
 
 export function raceMsg(text) {
@@ -709,6 +734,11 @@ export function showPause(actions) {
     <div class="actions"><button class="btn" data-m="quit">Exit race</button><button class="btn" data-m="restart">Restart</button><button class="btn go" data-m="resume">Resume</button></div>`, actions);
 }
 
+function nitroText(list) {
+  const n = q => list.filter(x => x === q).length;
+  return [[n('boost') + n('chain'), 'fired'], [n('chain'), 'chained'], [n('early'), 'wasted']].filter(([v]) => v).map(([v, k]) => `${v} ${k}`).join(', ');
+}
+
 const LAUNCH_NAME = { perfect: 'Perfect launch', good: 'Good launch', bog: 'Bog', wheelspin: 'Wheelspin', jump: 'Jump start' };
 
 export function showResult(d, actions) {
@@ -741,6 +771,7 @@ export function showResult(d, actions) {
       <div class="row"><span>${d.opp}</span><span>${t(d.them)}</span></div>
       <div class="row"><span>${LAUNCH_NAME[d.launch] || 'Launch'}</span><span>${d.reaction == null ? '—' : d.reaction.toFixed(3) + 's'}</span></div>
       <div class="row"><span>Shifts</span><span>${shiftText}</span></div>
+      ${d.nitros?.length ? `<div class="row"><span>Nitro</span><span>${nitroText(d.nitros)}</span></div>` : ''}
       ${legend ? '' : `<div class="row"><span>Stars</span><span>★★ ${MEDALS[d.event.id][0]}s · ★★★ ${MEDALS[d.event.id][1]}s</span></div>`}
     </div>
     ${unlocks.map(u => `<div class="unlock">${u}</div>`).join('')}
@@ -752,11 +783,21 @@ export function showResult(d, actions) {
     </div>`, actions);
 }
 
-let toastTimer = 0;
-export function toast(msg) {
-  const el = $('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+// Toasts queue up, so several achievements at once show one after another.
+const toasts = [];
+let toastBusy = false;
+export function toast(msg, kind = '') {
+  toasts.push([msg, kind]);
+  if (!toastBusy) nextToast();
+}
+function nextToast() {
+  const el = $('toast'), next = toasts.shift();
+  if (!next) { toastBusy = false; return; }
+  toastBusy = true;
+  el.textContent = next[0];
+  el.className = `toast show ${next[1]}`;
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(nextToast, 300);
+  }, toasts.length ? 2000 : 3000);
 }

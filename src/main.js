@@ -35,3 +35,4 @@ document.addEventListener('pointerdown', unlockAudio, true);
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 ui.init(game);
+if (new URLSearchParams(location.search).has('debug')) window.game = game; // for testing in the console

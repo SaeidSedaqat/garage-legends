@@ -6,8 +6,8 @@ import { pr, rng, hash, runSolo, aiInputs } from '../src/physics.js';
 
 const SAMPLES = 400;
 const TARGET_WIN = 0.7;
-const GOOD = { reaction: 0.35, launchQ: 'good', shiftQ: () => 'good' };
-const PERFECT = { reaction: 0.2, launchQ: 'perfect', shiftQ: () => 'perfect' };
+const GOOD = { reaction: 0.35, launchQ: 'good', shiftQ: () => 'good', nitroQ: 'boost' };
+const PERFECT = { reaction: 0.2, launchQ: 'perfect', shiftQ: () => 'perfect', nitroQ: 'chain' };
 
 const car = id => CARS.find(c => c.id === id);
 
@@ -31,7 +31,7 @@ const roundNice = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log1
 // A "mixed" player: taps at `tapsPerSec` while in the garage, races the next event once its PR
 // reaches the recommendation, otherwise replays its best won event or taps, and spends on
 // whatever adds the most PR per dollar. Each race costs `raceS` seconds including menus.
-export function pacing({ tapsPerSec = 2.5, raceS = 35, seed = 1 } = {}) {
+export function pacing({ tapsPerSec = 2, raceS = 35, seed = 1 } = {}) {
   const rand = rng(seed);
   // ~70% at the recommended PR (by definition), better or worse by the PR gap
   const winChance = (mine, rec) => Math.min(0.97, Math.max(0.05, 0.7 + (mine / rec - 1) * 3));
@@ -58,8 +58,9 @@ export function pacing({ tapsPerSec = 2.5, raceS = 35, seed = 1 } = {}) {
       } else cash += e.win * 0.25;
       continue;
     }
-    // shopping: a faster car, an upgrade, or a garage upgrade that pays back within 2 minutes
-    const nextCar = CARS.find(c => !tune[c.id] && pr(c.stats) > mine && !c.requires);
+    // shopping: the next car in the roster (what the goal chip points at), an upgrade, or a
+    // garage upgrade that pays back within 2 minutes
+    const nextCar = CARS.find(c => !tune[c.id] && !c.requires);
     if (nextCar && cash >= nextCar.price) { cash -= nextCar.price; tune[nextCar.id] = { engine: 0, turbo: 0, tires: 0 }; car = nextCar.id; mark(`car ${nextCar.tier}`); continue; }
     if (cp < MAX_LEVEL && cash >= CLICK_COST[cp + 1] && CLICK_COST[cp + 1] / ((CLICK_BASE[cp + 1] - CLICK_BASE[cp]) * tapsPerSec) < 120) { cash -= CLICK_COST[++cp]; continue; }
     if (won.has('country_2') && auto < MAX_LEVEL && cash >= AUTO_COST[auto + 1] && AUTO_COST[auto + 1] / ((AUTO_CPS[auto + 1] - AUTO_CPS[auto]) * clickV()) < 300) { cash -= AUTO_COST[++auto]; continue; }

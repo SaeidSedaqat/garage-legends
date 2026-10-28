@@ -42,7 +42,7 @@ export const CARS = [
   },
   {
     id: 'hikari', tier: 3, name: 'Hikari Coupe', tagline: 'Balance, style and control.', niche: 'Balanced tuner',
-    price: 2500, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 37, redlineRpm: 7500,
+    price: 4000, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 37, redlineRpm: 7500,
     art: 'hikari',
   },
   {
@@ -52,22 +52,22 @@ export const CARS = [
   },
   {
     id: 'kodiak', tier: 5, name: 'Kodiak Rally', tagline: 'Built for grip, not just straight lines.', niche: 'Best launch for its tier, rules the quarter mile',
-    price: 22000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 280, redlineRpm: 7800,
+    price: 18000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 280, redlineRpm: 7800,
     art: 'kaze', tint: [12, 1.5, 0.72],
   },
   {
     id: 'valken', tier: 6, name: 'Valken GT', tagline: 'Power, precision, all around.', niche: 'All-rounder, strong at the half mile',
-    price: 60000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 700, redlineRpm: 7600,
+    price: 40000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 700, redlineRpm: 7600,
     art: 'hikari', tint: [0, 0.12, 1.2],
   },
   {
     id: 'sora', tier: 7, name: 'Sora Roadster', tagline: 'Lightweight fun, maximum feel.', niche: 'Widest shift window, the easiest perfect runs',
-    price: 150000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 1850, redlineRpm: 8000,
+    price: 120000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 1850, redlineRpm: 8000,
     art: 'ronin', tint: [48, 1.2, 1.15],
   },
   {
     id: 'furia', tier: 8, name: 'Furia V10', tagline: "Speed isn't a dream anymore.", niche: 'Top-speed monster, demanding shifts',
-    price: 400000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 4600, redlineRpm: 8500,
+    price: 220000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 4600, redlineRpm: 8500,
     art: 'hikari', tint: [-85, 1.5, 1.2],
   },
   {
@@ -108,21 +108,21 @@ const ACE = { name: 'Ace', reaction: [0.2, 0.02], launch: 0.97, shift: { perfect
 // Opponent PRs come from tools/balance.js: a player at the event's recommended PR with
 // Good launches and Good shifts wins about 70% of the time.
 export const OPPONENTS = {
-  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'rusty' },
+  rusty: { name: 'The Rusty', carId: 'kaze', pr: 97, ai: SLOPPY, art: 'rusty' },
   dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 114, ai: STEADY, art: 'dusty' },
-  mira: { name: 'Mira', carId: 'ronin', pr: 144, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05] },
-  hank: { name: 'Hank', carId: 'ronin', pr: 186, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9] },
-  fox: { name: 'Silver Fox', carId: 'hikari', pr: 224, ai: STEADY, art: 'fox' },
-  sol: { name: 'Sol', carId: 'hikari', pr: 269, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15] },
-  marina: { name: 'Marina', carId: 'bulldog', pr: 324, ai: STEADY, art: 'ronin', tint: [-60, 1.1, 0.9] },
-  rocco: { name: 'Rocco', carId: 'bulldog', pr: 380, ai: SHARP, art: 'rusty', tint: [180, 0.6, 0.9] },
-  jade: { name: 'Jade', carId: 'kodiak', pr: 455, ai: SHARP, art: 'dusty', tint: [100, 1.2, 0.9] },
-  reef: { name: 'Captain Reef', carId: 'valken', pr: 522, ai: SHARP, art: 'fox', tint: [0, 0.2, 1.25] },
-  neon: { name: 'Neon', carId: 'valken', pr: 564, ai: SHARP, art: 'hikari', tint: [130, 1.6, 1.1] },
-  vex: { name: 'Vex', carId: 'sora', pr: 640, ai: { ...SHARP, launch: 1 }, art: 'ronin', tint: [-100, 1.3, 0.75] },
-  duke: { name: 'Duke', carId: 'furia', pr: 731, ai: SHARP, art: 'hikari', tint: [-170, 1.2, 0.85] },
-  aria: { name: 'Aria', carId: 'furia', pr: 810, ai: ACE, art: 'fox', tint: [-60, 1.2, 1.1] },
-  legend: { name: 'The Legend', carId: 'volta', pr: 904, ai: ACE, art: 'hikari', tint: [15, 1.3, 1.25] },
+  mira: { name: 'Mira', carId: 'ronin', pr: 143, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05] },
+  hank: { name: 'Hank', carId: 'ronin', pr: 184, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9] },
+  fox: { name: 'Silver Fox', carId: 'hikari', pr: 223, ai: STEADY, art: 'fox' },
+  sol: { name: 'Sol', carId: 'hikari', pr: 266, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15] },
+  marina: { name: 'Marina', carId: 'bulldog', pr: 322, ai: STEADY, art: 'ronin', tint: [-60, 1.1, 0.9] },
+  rocco: { name: 'Rocco', carId: 'bulldog', pr: 376, ai: SHARP, art: 'rusty', tint: [180, 0.6, 0.9] },
+  jade: { name: 'Jade', carId: 'kodiak', pr: 451, ai: SHARP, art: 'dusty', tint: [100, 1.2, 0.9] },
+  reef: { name: 'Captain Reef', carId: 'valken', pr: 515, ai: SHARP, art: 'fox', tint: [0, 0.2, 1.25] },
+  neon: { name: 'Neon', carId: 'valken', pr: 549, ai: SHARP, art: 'hikari', tint: [130, 1.6, 1.1] },
+  vex: { name: 'Vex', carId: 'sora', pr: 624, ai: { ...SHARP, launch: 1 }, art: 'ronin', tint: [-100, 1.3, 0.75] },
+  duke: { name: 'Duke', carId: 'furia', pr: 720, ai: SHARP, art: 'hikari', tint: [-170, 1.2, 0.85] },
+  aria: { name: 'Aria', carId: 'furia', pr: 791, ai: ACE, art: 'fox', tint: [-60, 1.2, 1.1] },
+  legend: { name: 'The Legend', carId: 'volta', pr: 880, ai: ACE, art: 'hikari', tint: [15, 1.3, 1.25] },
   // Legend Series rivals: their PR is set per round (see LEGEND below)
   storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'hikari', tint: [0, 1.3, 0.75] },
   ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'fox', tint: [0, 0.05, 1.35] },
@@ -132,34 +132,35 @@ export const OPPONENTS = {
 };
 
 // Rewards: `win` when winning (a finish without winning pays LOSS_PCT of it), `first` once on
-// the first win, `champion` once on a venue's last event. The pacing bot in tools/balance.js
-// ran the GDD's reward table about 2.5× faster than the §9.5 targets, so rewards are scaled
-// to 40% (Countryside), 30% (Coastal), 25% (City) and champion bonuses to 50%.
+// the first win, `champion` once on a venue's last event. Tuned with the pacing bot in
+// tools/balance.js against the GDD §9.5 targets (2 taps/s, buying each car the goal chip
+// suggests): rewards are 40% (Countryside), 60% (Coastal) and 37.5% (City) of the GDD table,
+// and some car prices and Click Power costs moved too (see README).
 export const EVENTS = [
   { id: 'country_1', env: 'countryside', name: 'First Run', dist: 'quarter', opp: 'rusty', rec: 90, win: 16, first: 24 },
   { id: 'country_2', env: 'countryside', name: 'Local Rival', dist: 'quarter', opp: 'dusty', rec: 120, win: 28, first: 40 },
   { id: 'country_3', env: 'countryside', name: 'Weekend Challenge', dist: 'quarter', opp: 'mira', rec: 150, win: 48, first: 72 },
   { id: 'country_4', env: 'countryside', name: 'Long Straight', dist: 'half', opp: 'hank', rec: 190, win: 80, first: 120 },
   { id: 'country_5', env: 'countryside', name: 'Countryside Champion', dist: 'half', opp: 'fox', rec: 230, win: 140, first: 240, champion: 1000 },
-  { id: 'coast_1', env: 'coastal', name: 'Coastal Debut', dist: 'quarter', opp: 'sol', rec: 280, win: 180, first: 300 },
-  { id: 'coast_2', env: 'coastal', name: 'Seaside Rival', dist: 'half', opp: 'marina', rec: 330, win: 300, first: 480 },
-  { id: 'coast_3', env: 'coastal', name: 'Cliffside Challenge', dist: 'half', opp: 'rocco', rec: 400, win: 510, first: 750 },
-  { id: 'coast_4', env: 'coastal', name: 'Sunset Sprint', dist: 'mile', opp: 'jade', rec: 470, win: 840, first: 1350 },
-  { id: 'coast_5', env: 'coastal', name: 'Coastal Champion', dist: 'mile', opp: 'reef', rec: 540, win: 1350, first: 2400, champion: 12500 },
-  { id: 'city_1', env: 'city', name: 'Night Qualifier', dist: 'half', opp: 'neon', rec: 600, win: 1900, first: 3000 },
-  { id: 'city_2', env: 'city', name: 'City Rival', dist: 'half', opp: 'vex', rec: 680, win: 3000, first: 5000 },
-  { id: 'city_3', env: 'city', name: 'Midnight Challenge', dist: 'mile', opp: 'duke', rec: 760, win: 5000, first: 8800 },
-  { id: 'city_4', env: 'city', name: 'Grand Prix Drag', dist: 'mile', opp: 'aria', rec: 860, win: 8800, first: 15000 },
-  { id: 'city_5', env: 'city', name: 'City Champion', dist: 'mile', opp: 'legend', rec: 960, win: 15000, first: 25000, champion: 125000 },
+  { id: 'coast_1', env: 'coastal', name: 'Coastal Debut', dist: 'quarter', opp: 'sol', rec: 280, win: 360, first: 600 },
+  { id: 'coast_2', env: 'coastal', name: 'Seaside Rival', dist: 'half', opp: 'marina', rec: 330, win: 600, first: 960 },
+  { id: 'coast_3', env: 'coastal', name: 'Cliffside Challenge', dist: 'half', opp: 'rocco', rec: 400, win: 1020, first: 1500 },
+  { id: 'coast_4', env: 'coastal', name: 'Sunset Sprint', dist: 'mile', opp: 'jade', rec: 470, win: 1680, first: 2700 },
+  { id: 'coast_5', env: 'coastal', name: 'Coastal Champion', dist: 'mile', opp: 'reef', rec: 540, win: 2700, first: 4800, champion: 25000 },
+  { id: 'city_1', env: 'city', name: 'Night Qualifier', dist: 'half', opp: 'neon', rec: 600, win: 2850, first: 4500 },
+  { id: 'city_2', env: 'city', name: 'City Rival', dist: 'half', opp: 'vex', rec: 680, win: 4500, first: 7500 },
+  { id: 'city_3', env: 'city', name: 'Midnight Challenge', dist: 'mile', opp: 'duke', rec: 760, win: 7500, first: 13200 },
+  { id: 'city_4', env: 'city', name: 'Grand Prix Drag', dist: 'mile', opp: 'aria', rec: 860, win: 13200, first: 22500 },
+  { id: 'city_5', env: 'city', name: 'City Champion', dist: 'mile', opp: 'legend', rec: 960, win: 22500, first: 37500, champion: 187500 },
 ];
 
 export const LOSS_PCT = 0.25;
 
 // Star medal times in seconds (silver, gold), generated by the balance check.
 export const MEDALS = {
-  country_1: [13.87, 13.48], country_2: [13.32, 12.87], country_3: [12.78, 12.28], country_4: [19.8, 19.19], country_5: [18.67, 17.84],
-  coast_1: [11.06, 10.32], coast_2: [16.71, 15.87], coast_3: [15.65, 14.77], coast_4: [26.63, 25.3], coast_5: [23.88, 22.36],
-  city_1: [13.64, 12.52], city_2: [13.31, 12.22], city_3: [20.55, 18.94], city_4: [19.32, 17.73], city_5: [18.37, 16.79],
+  country_1: [13.63, 13], country_2: [13.08, 12.39], country_3: [12.57, 11.83], country_4: [19.12, 18.28], country_5: [18.13, 17],
+  coast_1: [11.01, 10.01], coast_2: [16.11, 15.09], coast_3: [15.08, 14.04], coast_4: [25.69, 23.92], coast_5: [23.09, 21.19],
+  city_1: [13.36, 12.02], city_2: [12.98, 11.67], city_3: [19.93, 18.01], city_4: [18.74, 16.87], city_5: [17.82, 15.99],
 };
 
 // ---------------------------------------------------------------- Legend Series (endgame)
@@ -175,17 +176,17 @@ export const LEGEND = {
   growth: 0.035,
   softCap: 1290,
   lateGrowth: 0.01,
-  win: 20000,
+  win: 30000,
   winGrowth: 0.15,
   rivals: ['storm', 'ghost', 'blaze', 'frost', 'crown'],
   dists: ['quarter', 'half', 'mile'],
   envs: ['city', 'coastal', 'countryside'],
   ratio: {
-    storm: { quarter: 0.856, half: 0.898, mile: 0.942 },
-    ghost: { quarter: 0.856, half: 0.89, mile: 0.927 },
-    blaze: { quarter: 0.845, half: 0.883, mile: 0.915 },
-    frost: { quarter: 0.857, half: 0.93, mile: 1.005 },
-    crown: { quarter: 0.855, half: 0.898, mile: 0.941 },
+    storm: { quarter: 0.777, half: 0.865, mile: 0.92 },
+    ghost: { quarter: 0.781, half: 0.857, mile: 0.906 },
+    blaze: { quarter: 0.775, half: 0.849, mile: 0.894 },
+    frost: { quarter: 0.747, half: 0.872, mile: 0.969 },
+    crown: { quarter: 0.781, half: 0.862, mile: 0.916 },
   },
 };
 
@@ -202,7 +203,7 @@ export const MAX_LEVEL = 10;
 export const PER_LEVEL = 0.03;
 
 export const CLICK_BASE = [1, 2, 3, 5, 8, 12, 18, 27, 40, 60, 90];
-export const CLICK_COST = [null, 15, 60, 200, 600, 1800, 5000, 14000, 40000, 110000, 300000];
+export const CLICK_COST = [null, 20, 90, 320, 900, 2500, 6000, 15000, 40000, 110000, 300000];
 export const AUTO_CPS = [0, 0.2, 0.4, 0.7, 1, 1.4, 1.9, 2.5, 3.2, 4, 5];
 export const AUTO_COST = [null, 300, 1200, 4000, 12000, 35000, 90000, 220000, 500000, 1100000, 2400000];
 export const AUTO_UNLOCK = 'country_2';
@@ -223,6 +224,37 @@ export const MILESTONES = [
   { stars: 30, decor: 'Car lift', key: 'lift' },
   { stars: 38, cash: 500000 },
   { stars: 45, decor: 'Neon LEGEND sign', key: 'neon', title: 'Garage Legend' },
+];
+
+// ---------------------------------------------------------------- achievements
+
+// `track` names a progress value in state.js (PROGRESS); unlocked once it reaches `goal`.
+// Rewards are about one or two race wins at the point a player usually earns them.
+export const ACHIEVEMENTS = [
+  { id: 'first_win', name: 'Off the Line', desc: 'Win your first race', track: 'wins', goal: 1, reward: 50 },
+  { id: 'taps', name: 'Busy Hands', desc: 'Tap your car 1,000 times', track: 'clicks', goal: 1000, reward: 150 },
+  { id: 'perfect_launch', name: 'Lightning Start', desc: 'Get a perfect launch', track: 'perfectLaunches', goal: 1, reward: 100 },
+  { id: 'perfect_10', name: 'Smooth Operator', desc: 'Make 10 perfect shifts', track: 'perfectShifts', goal: 10, reward: 150 },
+  { id: 'cars_3', name: 'Collector', desc: 'Own 3 cars', track: 'cars', goal: 3, reward: 400 },
+  { id: 'crits', name: 'Lucky Strikes', desc: 'Land 50 critical taps', track: 'crits', goal: 50, reward: 500 },
+  { id: 'wrench', name: 'Golden Touch', desc: 'Grab 10 Golden Wrenches', track: 'wrenches', goal: 10, reward: 800 },
+  { id: 'chain', name: 'Nitro Combo', desc: 'Chain 3 nitro bursts in one race', track: 'bestChain', goal: 3, reward: 300 },
+  { id: 'photo', name: 'Photo Finish', desc: 'Win by less than 0.05 s', track: 'photoFinishes', goal: 1, reward: 800 },
+  { id: 'comeback', name: 'Comeback Kid', desc: 'Win after trailing by half a second', track: 'comebacks', goal: 1, reward: 1000 },
+  { id: 'champ_country', name: 'Country Champ', desc: 'Win Countryside Champion', track: 'country_5', goal: 1, reward: 500 },
+  { id: 'flawless', name: 'Flawless', desc: 'Win with every shift perfect', track: 'flawlessWins', goal: 1, reward: 600 },
+  { id: 'auto_5', name: 'Crew Chief', desc: 'Garage Automation level 5', track: 'automation', goal: 5, reward: 5000 },
+  { id: 'perfect_100', name: 'Gearhead', desc: 'Make 100 perfect shifts', track: 'perfectShifts', goal: 100, reward: 6000 },
+  { id: 'max_upgrade', name: 'Maxed Out', desc: 'Take any upgrade to level 10', track: 'maxLevel', goal: 10, reward: 8000 },
+  { id: 'cars_6', name: 'Showroom', desc: 'Own 6 cars', track: 'cars', goal: 6, reward: 15000 },
+  { id: 'champ_coast', name: 'Coast Champ', desc: 'Win Coastal Champion', track: 'coast_5', goal: 1, reward: 10000 },
+  { id: 'millionaire', name: 'Millionaire', desc: 'Earn $1M in total', track: 'earned', goal: 1e6, reward: 50000 },
+  { id: 'champ_city', name: 'City Champ', desc: 'Win City Champion', track: 'city_5', goal: 1, reward: 100000 },
+  { id: 'stars', name: 'Perfectionist', desc: 'Earn all 45 stars', track: 'stars', goal: 45, reward: 250000 },
+  { id: 'cars_10', name: 'Full Garage', desc: 'Own all 10 cars', track: 'cars', goal: 10, reward: 250000 },
+  { id: 'legend_5', name: 'Rising Legend', desc: 'Clear Legend round 5', track: 'legend', goal: 5, reward: 100000 },
+  { id: 'legend_10', name: 'Living Legend', desc: 'Clear Legend round 10', track: 'legend', goal: 10, reward: 250000 },
+  { id: 'legend_20', name: 'Myth', desc: 'Clear Legend round 20', track: 'legend', goal: 20, reward: 1000000 },
 ];
 
 // ---------------------------------------------------------------- race simulation (GDD §6)
@@ -246,5 +278,11 @@ export const SIM = {
   // launch skill is when to start holding: slow enough that the needle sits in the band ~0.5 s.
   revRate: 0.35,
   revFall: 2.2,   // ... and while released
+  lastShiftAt: 0.6, // gearing is set per distance so the last shift lands about this far in
+  // Top-gear nitro, the rhythm part of the race: charges (1 + 1 per `per` meters of race,
+  // + 1 for a perfect launch, + 1 per 2 perfect shifts, at most `bonusMax` bonus), each a
+  // burst of `time` s raising top speed and push. Firing the next one in the last
+  // `chainWindow` s of a burst chains it (×chainBonus); any earlier wastes it.
+  nitro: { per: 400, bonusMax: 3, time: 1.5, speed: 1.08, force: 1.25, chainWindow: 0.35, chainBonus: 1.5 },
   postFinish: 3,  // race ends this long after the player crosses
 };

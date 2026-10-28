@@ -1,7 +1,7 @@
 // Player progress, economy rules and saving (GDD §8, §9, §13).
 import {
   CARS, EVENTS, ENVS, OPPONENTS, CAR_UPGRADES, MAX_LEVEL, PER_LEVEL, CLICK_BASE, CLICK_COST, AUTO_CPS,
-  AUTO_COST, AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND,
+  AUTO_COST, AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND, ACHIEVEMENTS,
 } from './data.js';
 import { pr } from './physics.js';
 import { bus } from './events.js';
@@ -22,9 +22,12 @@ const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motio
 function fresh() {
   return {
     v: 2, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune() },
-    clickPower: 0, automation: 0, events: {}, milestones: [], tutorial: {}, legend: { round: 1, best: 0 },
-    stats: { clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0 },
-    muted: false, units: 'mph', reducedMotion: prefersReducedMotion(), lastActive: Date.now(),
+    clickPower: 0, automation: 0, events: {}, milestones: [], tutorial: {}, legend: { round: 1, best: 0 }, achievements: {},
+    stats: {
+      clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0,
+      crits: 0, wrenches: 0, perfectLaunches: 0, bestChain: 0, photoFinishes: 0, comebacks: 0, flawlessWins: 0,
+    },
+    muted: false, units: 'kmh', unitsChosen: false, reducedMotion: prefersReducedMotion(), lastActive: Date.now(),
   };
 }
 
@@ -66,10 +69,13 @@ function validate(raw) {
   }
   s.events = events;
   s.stats = { ...fresh().stats, ...s.stats };
+  s.achievements = Object.fromEntries(Object.entries(s.achievements || {}).filter(([id]) => ACHIEVEMENTS.some(a => a.id === id)));
   s.milestones = (s.milestones || []).filter(n => MILESTONES.some(m => m.stars === n));
   const round = Math.max(1, Math.floor(+s.legend?.round || 1));
   s.legend = { round, best: Math.min(round - 1, Math.max(0, Math.floor(+s.legend?.best || 0))) };
-  if (s.units !== 'kmh') s.units = 'mph';
+  // KM/H is the default; MPH only if the player picked it in Settings
+  s.unitsChosen = !!s.unitsChosen;
+  s.units = s.unitsChosen && s.units === 'mph' ? 'mph' : 'kmh';
   s.reducedMotion = !!s.reducedMotion;
   // players who already raced or tuned (including migrated saves) skip the first-session guide
   s.tutorial = { ...s.tutorial };
@@ -99,6 +105,7 @@ export function save() {
 }
 // Purchases and results save at once; click income saves 2 s after the last change.
 export function changed(what, now = what !== 'money') {
+  if (what !== 'money') checkAchievements();
   bus.emit('change', what);
   if (now) save();
   else { clearTimeout(saveTimer); saveTimer = setTimeout(save, 2000); }
@@ -222,8 +229,44 @@ export function tap() {
   const crit = Math.random() < CRIT.chance;
   const value = clickValue() * (crit ? CRIT.mult : 1);
   state.stats.clicks++;
+  if (crit) state.stats.crits++;
   earn(value, 'fromClicks');
+  // tap counters only cross achievement goals now and then, so check sparingly
+  if ((crit || state.stats.clicks % 25 === 0) && checkAchievements().length) save();
   return { value, crit };
+}
+
+export function grabWrench(value) {
+  state.stats.wrenches++;
+  earn(value, 'fromClicks');
+  changed('wrench');
+}
+
+// ---------------------------------------------------------------- achievements
+
+const wonEvent = id => +!!state.events[id]?.won;
+const PROGRESS = {
+  cars: () => state.owned.length,
+  automation: () => state.automation,
+  maxLevel: () => Math.max(state.clickPower, state.automation, ...Object.values(state.tune).flatMap(t => Object.values(t))),
+  earned: () => state.stats.fromClicks + state.stats.fromRaces + state.stats.fromAuto,
+  stars: () => totalStars(),
+  legend: () => state.legend.best,
+  country_5: () => wonEvent('country_5'),
+  coast_5: () => wonEvent('coast_5'),
+  city_5: () => wonEvent('city_5'),
+};
+export const achievementProgress = a => Math.min(a.goal, PROGRESS[a.track] ? PROGRESS[a.track]() : state.stats[a.track] || 0);
+
+// Unlocks every achievement whose goal is reached and pays its reward. Callers save.
+export function checkAchievements() {
+  const fresh = ACHIEVEMENTS.filter(a => !state.achievements[a.id] && achievementProgress(a) >= a.goal);
+  for (const a of fresh) {
+    state.achievements[a.id] = Date.now();
+    state.cash += a.reward;
+  }
+  if (fresh.length) bus.emit('achievement', fresh);
+  return fresh;
 }
 
 export function collectOffline() {
@@ -292,8 +335,21 @@ function recordLegend(e, won, perfects) {
   return { lines, total, firstWin: won, stars: 0, newStars: 0, milestones: [], next: won ? legendEvent(e.legend + 1) : null, env: null };
 }
 
+// Race feats for achievements: perfect launch, the longest nitro chain, and (for wins) an
+// all-perfect run, a comeback from half a second down, or a winning margin under 0.05 s.
+function recordFeats(won, f) {
+  const s = state.stats;
+  s.perfectLaunches += f.perfectLaunch ? 1 : 0;
+  s.bestChain = Math.max(s.bestChain, f.chain);
+  if (!won) return;
+  s.flawlessWins += f.flawless ? 1 : 0;
+  s.comebacks += f.behind >= 0.5 ? 1 : 0;
+  s.photoFinishes += f.margin < 0.05 ? 1 : 0;
+}
+
 // Applies a finished race and returns what it paid and unlocked (GDD §9.4, §7.3–§7.5).
-export function recordRace(e, won, time, perfects) {
+export function recordRace(e, won, time, perfects, feats) {
+  if (feats) recordFeats(won, feats);
   if (e.legend) return recordLegend(e, won, perfects);
   const rec = (state.events[e.id] ||= { won: false, stars: 0, best: null });
   const firstWin = won && !rec.won;
@@ -317,9 +373,10 @@ export function recordRace(e, won, time, perfects) {
   }
   const total = payout(lines, won, perfects);
 
+  // the next event: the venue's next one, or after a champion win the new venue's first
   const list = EVENTS.filter(x => x.env === e.env);
-  const next = firstWin ? list[list.indexOf(e) + 1] : null;
   const env = firstWin ? ENVS.find(v => v.requires === e.id) : null;
+  const next = firstWin ? list[list.indexOf(e) + 1] || (env && EVENTS.find(x => x.env === env.id)) : null;
   changed('race');
   return { lines, total, firstWin, stars, newStars, milestones, next, env };
 }

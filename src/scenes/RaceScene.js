@@ -3,6 +3,7 @@ import { DIST, ENVS, OPPONENTS, SIM } from '../data.js';
 import { state, carDef, eventDef, tunedSpec, opponentSpec, recordRace } from '../state.js';
 import {
   makeRacer, step, launch, shift, topGear, zones, launchBand, plannedRev, plannedShift, shiftReady, aiInputs, rng, hash,
+  nitro, nitroReady,
 } from '../physics.js';
 import { CarView, MOCKUP, PROPS, cover, addTex, drawGround, drawDashes, drawChecker, drawMarks } from '../art.js';
 import { sfx, engine } from '../audio.js';
@@ -16,6 +17,7 @@ const IDLE_RPM = 0.12;
 const LAUNCH_TEXT = { perfect: 'PERFECT LAUNCH!', good: 'GOOD LAUNCH', bog: 'BOG', wheelspin: 'WHEELSPIN', jump: 'JUMP START' };
 const LAUNCH_KIND = { perfect: 'perfect', good: 'good', bog: 'early', wheelspin: 'early', jump: 'foul' };
 const SHIFT_TEXT = { perfect: 'PERFECT SHIFT!', good: 'GOOD SHIFT', early: 'EARLY SHIFT', late: 'LATE SHIFT' };
+const NITRO_TEXT = { boost: ['NITRO!', 'good'], chain: ['CHAIN!', 'perfect'], early: ['WASTED', 'foul'] };
 
 export class RaceScene extends Phaser.Scene {
   constructor() { super('race'); }
@@ -26,8 +28,8 @@ export class RaceScene extends Phaser.Scene {
     this.D = DIST[this.event.dist].m;
     this.pSpec = tunedSpec();
     this.oSpec = opponentSpec(this.event);
-    this.p = makeRacer(this.pSpec);
-    this.o = makeRacer(this.oSpec);
+    this.p = makeRacer(this.pSpec, this.D);
+    this.o = makeRacer(this.oSpec, this.D);
 
     // every attempt is seeded, so a retry plays differently but any run can be replayed (GDD §6.6)
     const rand = rng(hash(`${this.event.id}#${state.stats.races}`));
@@ -50,6 +52,7 @@ export class RaceScene extends Phaser.Scene {
     this.doneT = 0;
     this.paused = false;
     this.cam = 0;
+    this.maxBehind = 0;
     this.pitch = 0;
     this.smoke = [];
   }
@@ -243,6 +246,8 @@ export class RaceScene extends Phaser.Scene {
       }
     }
 
+    // how far behind the player has been, in seconds, for the comeback achievement
+    if (p.launched && o.launched && !p.finished) this.maxBehind = Math.max(this.maxBehind, (o.dist - p.dist) / Math.max(p.v, 1));
     if (p.finished && !this.pDone) {
       this.pDone = true;
       ui.callout(o.finished ? 'FINISHED' : 'FIRST!', o.finished ? 'good' : 'finish');
@@ -270,6 +275,9 @@ export class RaceScene extends Phaser.Scene {
       else text = this.t >= this.ambers[0] ? 'Press and HOLD now!' : 'When the yellow lights come on, press and HOLD';
     } else if (!p.shifts.length && !p.finished) {
       text = p.rpm >= z.good[0] ? 'SHIFT now!' : 'Wait for the green zone, then tap SHIFT';
+    } else if (topGear(p) && !p.finished && p.nitro > 0) {
+      const chainOpen = p.boost > 0 && p.boost <= SIM.nitro.chainWindow;
+      text = !p.nitros.length ? 'Top gear! Tap NITRO' : chainOpen ? 'Tap now to CHAIN!' : p.boost > 0 ? 'Wait for the flash…' : 'Tap NITRO';
     }
     if (text) ui.coach(document.getElementById('btn-shift'), text);
     else if (this.coachText) ui.coachOff();
@@ -287,6 +295,7 @@ export class RaceScene extends Phaser.Scene {
       shift(o);
       this.oppPlan = plannedShift(this.oSpec, this.ai.shiftQ(o.gear));
     }
+    if (nitroReady(o, this.ai.nitroQ)) nitro(o);
     step(o, h, this.D);
   }
 
@@ -328,18 +337,22 @@ export class RaceScene extends Phaser.Scene {
     // tire smoke off the line, heavy after a wheelspin launch
     const spin = p.launched && p.launchT < 1.2 ? (p.launchLabel === 'wheelspin' ? 1 : 0.35) * (1 - p.launchT / 1.2) : 0;
     if (spin > 0 && this.smoke.length < 60 && Math.random() < spin * 1.5) this.puff();
+    // blue exhaust flame while a nitro burst burns, for both cars
+    if (p.boost > 0 && !p.finished) this.flame(this.pCar, L.laneP, L.carW);
+    if (o.boost > 0 && !o.finished) this.flame(this.oCar, L.laneO, L.carW * 0.92);
     const scroll = (this.cam - prevCam) * L.ppm;
     this.smoke = this.smoke.filter(s => {
       s.life += dt;
       if (s.life >= s.max) { s.c.destroy(); return false; }
-      s.c.x += s.vx * dt - scroll;
+      s.c.x += s.vx * dt - (s.grow ? 0 : scroll); // smoke stays on the road, nitro flame rides with the car
       s.c.y += s.vy * dt;
-      s.c.setScale(1 + s.life * 3).setAlpha(0.5 * (1 - s.life / s.max));
+      s.c.setScale(1 + s.life * (s.grow ?? 3)).setAlpha((s.grow ? 0.9 : 0.5) * (1 - s.life / s.max));
       return true;
     });
 
     const z = zones(p.spec);
     const racing = p.launched && !p.finished && !topGear(p) && p.shifting <= 0;
+    const nitroOn = p.launched && !p.finished && topGear(p) && p.nitro > 0;
     const limiter = racing && p.rpm >= 1;
     ui.updateRace({
       rpm: limiter ? 0.96 + Math.random() * 0.04 : p.rpm,
@@ -352,8 +365,22 @@ export class RaceScene extends Phaser.Scene {
       inBand: !p.launched && p.rpm >= launchBand(p.spec)[0] && p.rpm <= launchBand(p.spec)[1],
       gap: p.launched && o.launched ? o.dist - p.dist : null,
       speed: Math.max(p.v, 1),
+      nitro: !nitroOn ? null : p.boost <= 0 ? 'ready' : p.boost <= SIM.nitro.chainWindow ? 'chain' : 'burn',
     });
     engine.set(p.rpm * carDef(state.car).redlineRpm, !p.launched ? 0.45 : p.shifting > 0 || p.finished ? 0.15 : 1);
+  }
+
+  // Nitro: a short blue-white flame from the exhaust, built from quick additive sparks.
+  flame(car, lane, carW) {
+    if (this.smoke.length > 120) return;
+    // sparks start spread along the trail so the flame reads as one shape at any frame rate
+    for (let i = 0; i < 4; i++) {
+      const hot = i === 0, back = Math.random() * carW * 0.14;
+      const c = this.add.ellipse(car.c.x - carW * 0.99 - back, lane - carW * 0.075, carW * (hot ? 0.07 : 0.12), carW * (hot ? 0.03 : 0.055), hot ? 0xffffff : 0x4fc3ff, 0.85)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.smokeLayer.add(c);
+      this.smoke.push({ c, life: 0, max: 0.08 + Math.random() * 0.08, vx: -(120 + Math.random() * 80) * DPR, vy: (Math.random() - 0.5) * 20 * DPR, grow: -2 });
+    }
   }
 
   puff() {
@@ -377,12 +404,25 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     if (p.finished) return;
+    if (topGear(p)) return this.fireNitro();
     const q = shift(p);
     if (!q) return;
     sfx.shift(q);
     ui.callout(SHIFT_TEXT[q], q);
     if (q === 'perfect' && !state.reducedMotion) this.cameras.main.shake(110, 0.003);
-    if (topGear(p)) { ui.setPrimary('done'); ui.raceMsg('Top gear. Hold on!'); }
+    if (topGear(p)) {
+      ui.setPrimary('nitro', p.nitro);
+      ui.raceMsg('Top gear! Tap NITRO · chain on the flash');
+    }
+  }
+
+  fireNitro() {
+    const p = this.p, q = nitro(p);
+    if (!q) return;
+    ui.callout(...NITRO_TEXT[q]);
+    if (q !== 'early' && !state.reducedMotion) this.cameras.main.shake(q === 'chain' ? 160 : 90, q === 'chain' ? 0.004 : 0.002);
+    if (p.nitro > 0) ui.setPrimary('nitro', p.nitro);
+    else { ui.setPrimary('done'); ui.raceMsg('Out of nitro. Hold on!'); }
   }
 
   up() {
@@ -442,11 +482,17 @@ export class RaceScene extends Phaser.Scene {
       if (won) state.tutorial.raced = true;
       ui.coachOff();
     }
-    const res = recordRace(event, won, p.finishTime, p.shifts.filter(s => s === 'perfect').length);
+    // longest run of linked bursts: a burst plus every chain fired straight after it
+    let chain = 0, run = 0;
+    for (const q of p.nitros) { run = q === 'chain' ? run + 1 : q === 'boost' ? 1 : run; chain = Math.max(chain, run); }
+    const res = recordRace(event, won, p.finishTime, p.shifts.filter(s => s === 'perfect').length, {
+      perfectLaunch: p.launchLabel === 'perfect', chain, behind: this.maxBehind, margin: o.finishTime - p.finishTime,
+      flawless: p.shifts.length > 0 && p.shifts.every(s => s === 'perfect'),
+    });
     if (won) sfx.win(); else sfx.lose();
     ui.showResult({
       won, event, opp: this.oSpec.name, you: p.finishTime, them: o.finishTime,
-      reaction: p.reaction, launch: p.launchLabel, shifts: p.shifts, ...res,
+      reaction: p.reaction, launch: p.launchLabel, shifts: p.shifts, nitros: p.nitros, ...res,
     }, {
       again: () => this.scene.restart({ eventId: event.id }),
       next: res.next ? () => ui.showMatchup(res.next.id) : null,
