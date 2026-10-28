@@ -93,8 +93,13 @@ export function init(g) {
   applyMotion();
   bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
 
-  // keyboard: 1/2/3 open Race/Upgrades/Cars, Escape closes the top panel (GDD §10.10)
+  // keyboard: Enter presses a dialog's main button; in the garage 1/2/3 open
+  // Race/Upgrades/Cars and Escape closes the top panel (GDD §10.10)
   window.addEventListener('keydown', e => {
+    if (e.code === 'Enter' && !$('modal').hidden && !e.repeat) {
+      $('modal-card').querySelector('.actions .btn.go')?.click();
+      return;
+    }
     if ($('garage-ui').hidden || e.repeat) return;
     if (e.code === 'Escape') { if (!$('modal').hidden) { hideModal(); coachUpdate(); } else closePanel(); }
     if (!$('modal').hidden) return;
@@ -701,6 +706,11 @@ export function raceMsg(text) {
   $('race-msg').textContent = text;
 }
 
+// A short buzz on phones for the best moments; skipped with Reduce motion.
+export function buzz(ms = 25) {
+  if (!state.reducedMotion) navigator.vibrate?.(ms);
+}
+
 export function callout(text, kind = '') {
   const el = $('callout');
   el.className = 'callout';
@@ -749,6 +759,8 @@ export function showResult(d, actions) {
   let tip = '';
   if (!d.won) {
     tip = d.launch === 'jump' ? 'Release only once the light turns green.'
+      : d.reaction > 0.6 ? 'Launch the moment the light turns green.'
+      : d.nitros && !d.nitros.length ? 'Tap NITRO in top gear, and chain it when the button flashes.'
       : d.launch === 'bog' ? 'Hold longer before green so the needle sits in the yellow launch band.'
         : d.shifts.filter(s => s === 'perfect' || s === 'good').length < d.shifts.length / 2 ? 'Shift while the needle is in the green zone.'
           : carPR(state.car) < d.event.rec ? `Recommended PR is ${d.event.rec}. Upgrade or pick a faster car.` : 'So close. Try again!';

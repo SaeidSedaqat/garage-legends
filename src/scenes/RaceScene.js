@@ -413,6 +413,7 @@ export class RaceScene extends Phaser.Scene {
     this.lastPress = this.t;
     sfx.shift(q);
     ui.callout(SHIFT_TEXT[q], q);
+    if (q === 'perfect') ui.buzz();
     if (q === 'perfect' && !state.reducedMotion) this.cameras.main.shake(110, 0.003);
     if (topGear(p)) {
       ui.setPrimary('nitro', p.nitro);
@@ -425,6 +426,7 @@ export class RaceScene extends Phaser.Scene {
     if (!q) return;
     this.lastPress = this.t;
     ui.callout(...NITRO_TEXT[q]);
+    if (q === 'chain') ui.buzz(40);
     if (q !== 'early' && !state.reducedMotion) this.cameras.main.shake(q === 'chain' ? 160 : 90, q === 'chain' ? 0.004 : 0.002);
     if (p.nitro > 0) ui.setPrimary('nitro', p.nitro);
     else { ui.setPrimary('done'); ui.raceMsg('Out of nitro. Hold on!'); }
@@ -446,6 +448,7 @@ export class RaceScene extends Phaser.Scene {
     const p = this.p;
     const label = launch(p, this.t - this.greenAt, jump);
     ui.callout(LAUNCH_TEXT[label], LAUNCH_KIND[label]);
+    if (label === 'perfect') ui.buzz(40);
     ui.setPrimary('shift');
     ui.raceMsg('Shift in the green zone');
   }

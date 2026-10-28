@@ -1,6 +1,6 @@
 import { ART, CARS, OPPONENTS } from '../data.js';
 import { GARAGE, MOCKUP, PROPS, addTex, drawShadow, drawWrench, ensureCar, queueCar, registerProps } from '../art.js';
-import { collectOffline, state } from '../state.js';
+import { checkAchievements, collectOffline, save, state } from '../state.js';
 import { platform } from '../platform.js';
 import * as ui from '../ui.js';
 
@@ -41,5 +41,7 @@ export class BootScene extends Phaser.Scene {
     const away = collectOffline();
     this.scene.start('garage');
     if (away > 0) ui.toast(`Welcome back! Your crew earned ${ui.fmt(away)}`);
+    // progress made before achievements existed (or in an older version) unlocks right away
+    if (checkAchievements().length) save();
   }
 }
