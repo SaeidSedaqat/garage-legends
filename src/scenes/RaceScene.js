@@ -34,6 +34,7 @@ export class RaceScene extends Phaser.Scene {
     // every attempt is seeded, so a retry plays differently but any run can be replayed (GDD §6.6)
     const rand = rng(hash(`${this.event.id}#${state.stats.races}`));
     this.ai = aiInputs(OPPONENTS[this.event.opp].ai, rand);
+    this.o.a0 *= this.ai.form;
     this.oppPlan = plannedShift(this.oSpec, this.ai.shiftQ(0));
     // the very first race is coached, with a longer lead-in so there's time to read
     this.guide = !state.tutorial.raced;
@@ -53,6 +54,7 @@ export class RaceScene extends Phaser.Scene {
     this.paused = false;
     this.cam = 0;
     this.maxBehind = 0;
+    this.lastPress = -1;
     this.pitch = 0;
     this.smoke = [];
   }
@@ -404,9 +406,11 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     if (p.finished) return;
-    if (topGear(p)) return this.fireNitro();
+    // a tap right after the last shift or a nitro is a double tap, not a nitro press
+    if (topGear(p)) return this.t - this.lastPress > 0.25 && this.fireNitro();
     const q = shift(p);
     if (!q) return;
+    this.lastPress = this.t;
     sfx.shift(q);
     ui.callout(SHIFT_TEXT[q], q);
     if (q === 'perfect' && !state.reducedMotion) this.cameras.main.shake(110, 0.003);
@@ -419,6 +423,7 @@ export class RaceScene extends Phaser.Scene {
   fireNitro() {
     const p = this.p, q = nitro(p);
     if (!q) return;
+    this.lastPress = this.t;
     ui.callout(...NITRO_TEXT[q]);
     if (q !== 'early' && !state.reducedMotion) this.cameras.main.shake(q === 'chain' ? 160 : 90, q === 'chain' ? 0.004 : 0.002);
     if (p.nitro > 0) ui.setPrimary('nitro', p.nitro);
@@ -446,7 +451,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   setPaused(on) {
-    if (on === this.paused || this.phase === 'done') return;
+    // once the player is over the line there's nothing to pause; the results are seconds away
+    if (on === this.paused || this.phase === 'done' || (on && this.p.finished)) return;
     this.paused = on;
     this.holding = false;
     engine.pause(on);

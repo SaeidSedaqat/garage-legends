@@ -41,7 +41,7 @@ const vMaxOf = spec => (90 + 1.6 * spec.topSpeed) * 0.44704;
 // curve (a few passes, since shifting changes the curve); the engine's power is unchanged.
 const gearCache = new Map();
 function gearEnds(spec, distance) {
-  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${distance}`;
+  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${distance}|${SIM.lastShiftAt}`;
   if (!gearCache.has(key)) {
     const n = spec.gears, vMax = vMaxOf(spec), shiftAt = plannedShift(spec, 'good').rpm;
     let ends = null;
@@ -97,11 +97,12 @@ function build(spec, gearing, distance) {
   };
 }
 
-// Nitro charges are handed out on reaching top gear: more for longer races, plus one for a
-// perfect launch and one for every two perfect shifts.
+// Nitro charges are handed out on reaching top gear: enough to fill `cover` of the time left
+// to the line, plus one for a perfect launch and one for every two perfect shifts.
 function nitroCharges(r) {
-  const N = SIM.nitro, bonus = (r.launchLabel === 'perfect' ? 1 : 0) + Math.floor(r.shifts.filter(q => q === 'perfect').length / 2);
-  return Math.floor(1 + r.distance / N.per) + Math.min(N.bonusMax, bonus);
+  const N = SIM.nitro, left = (r.distance - r.dist) / Math.max(r.v, 1);
+  const bonus = (r.launchLabel === 'perfect' ? 1 : 0) + Math.floor(r.shifts.filter(q => q === 'perfect').length / 2);
+  return Math.max(1, Math.round((left * N.cover) / N.time)) + Math.min(N.bonusMax, bonus);
 }
 
 // Fires one nitro charge (top gear only). A charge fired in the last moment of the running
@@ -252,8 +253,9 @@ export function gauss(rand, mean, sd) {
 }
 
 // A whole race for one car with scripted inputs; returns its finish time from green.
-export function runSolo(spec, distance, { reaction, launchQ, shiftQ, nitroQ = 'boost' }) {
+export function runSolo(spec, distance, { reaction, launchQ, shiftQ, nitroQ = 'boost', form = 1 }) {
   const r = makeRacer(spec, distance), dt = SIM.dt;
+  r.a0 *= form;
   let target = plannedShift(spec, shiftQ(0));
   for (let t = 0; !r.finished && t < 120; t += dt) {
     if (!r.launched && t >= reaction) {
@@ -278,5 +280,8 @@ export function aiInputs(ai, rand) {
   const shifts = Array.from({ length: 8 }, () => pick(ai.shift, rand));
   // sharper drivers chain their nitro more often
   const nitroQ = rand() < ai.shift.perfect + 0.1 ? 'chain' : 'boost';
-  return { reaction: Math.max(0.12, gauss(rand, ai.reaction[0], ai.reaction[1])), launchQ, shiftQ: i => shifts[i], nitroQ };
+  // the car's form on the day scales its acceleration, so results spread out a little and a
+  // slightly worse run can still win
+  const form = gauss(rand, 1, SIM.aiForm);
+  return { reaction: Math.max(0.12, gauss(rand, ai.reaction[0], ai.reaction[1])), launchQ, shiftQ: i => shifts[i], nitroQ, form };
 }
