@@ -13,7 +13,7 @@ import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
-import { carPreview, partIconURL, portraitURL } from './art.js';
+import { carPreview, partIconURL, portraitURL, uiIconURL } from './art.js';
 
 const $ = id => document.getElementById(id);
 
@@ -127,6 +127,7 @@ export function init(g) {
 
   bus.on('change', what => {
     if (what === 'car') viewing = null;
+    if (what === 'art') paintedIcons();
     renderWallet();
     renderCarBuy();
     if (what === 'money') refreshAfford();
@@ -180,6 +181,18 @@ function renderCarBuy() {
     ${lock ? `<div class="locked-note">${ICONS.lock}<span>${lock} · ${fmt(c.price)}</span></div>`
       : `<button class="btn buy" data-action="car" data-id="${c.id}" data-cost="${c.price}">Buy · ${fmt(c.price)}</button>`}`;
   refreshAfford();
+}
+
+// Once the painted icon sheet is in, it replaces the line icons on the Race button, the
+// achievements button and the cash badge.
+function paintedIcons() {
+  const img = name => `<img class="art-icon" src="${uiIconURL(name)}" alt="">`;
+  if (!uiIconURL('race')) return;
+  $('btn-race').innerHTML = `${img('race')}<span>Race</span>`;
+  $('btn-trophies').querySelector('svg, .art-icon')?.remove();
+  $('btn-trophies').insertAdjacentHTML('afterbegin', img('trophy'));
+  document.querySelector('.cash-icon').innerHTML = img('cash');
+  document.querySelector('.cash-icon').classList.add('art');
 }
 
 // A short pulse to show the player where something is.
@@ -323,17 +336,17 @@ function renderUpgrades() {
   const cp = state.clickPower, au = state.automation, stars = totalStars(), mult = 1 + STAR_BONUS * stars;
   const perTap = lvl => fmt(Math.round(tapBase(lvl) * mult));
   const garage = upgButton({
-    action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, cost: garageCost('click'),
+    action: 'garage', id: 'click', icon: 'coin', img: uiIconURL('tap'), name: 'Tap Power', lvl: cp, cost: garageCost('click'),
     desc: 'More cash for every tap on your car. No limit: keep upgrading.',
     gain: `${perTap(cp)} → ${perTap(cp + 1)} / tap`,
   }) + upgButton({
-    action: 'garage', id: 'auto', icon: 'crew', name: 'Pit Crew', lvl: autoUnlocked() ? au : null, cost: garageCost('auto'),
+    action: 'garage', id: 'auto', icon: 'crew', img: uiIconURL('crew'), name: 'Pit Crew', lvl: autoUnlocked() ? au : null, cost: garageCost('auto'),
     desc: autoUnlocked() ? "Taps your car for you, even while you're away (half rate, up to 2 h). Each level makes them tap faster."
       : `Win ${eventDef(AUTO_UNLOCK).name} and your crew starts tapping your car at ${crewRate(0)} taps/s. Upgrades make them faster.`,
     lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
     gain: `${crewRate(au)} → ${crewRate(au + 1)} taps / s`,
   }) + upgButton({
-    action: 'rep', id: 'rep', icon: 'star', name: 'Reputation', desc: 'Every race star adds 5% to tap income, and star milestones pay out cash.',
+    action: 'rep', id: 'rep', icon: 'star', img: uiIconURL('rep'), name: 'Reputation', desc: 'Every race star adds 5% to tap income, and star milestones pay out cash.',
     gain: `×${mult.toFixed(2)} tap income`, tag: `★ ${stars}`,
   });
   return `<div class="dock-head">${car.name} · PR <b>${carPR(state.car)}</b></div><div class="upg-grid">${parts}</div>

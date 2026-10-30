@@ -128,7 +128,8 @@ To get there:
 - Rival portraits are on `assets/portraits.jpg` (`portrait` crops in `OPPONENTS`) and show on
   the pre-race screen. Upgrade part icons are painted on `assets/parts.jpg` (`PART_ICONS` in
   `src/art.js`); Tires and Drag Slicks use the tyre stack, and the Golden Wrench the wrench,
-  from the portrait sheet.
+  from the portrait sheet. The garage upgrades, RACE and achievements buttons and the cash badge
+  use the painted icons on `assets/ui-icons.jpg` (`UI_ICONS`).
 - Every car has its own themed scene (`assets/scene-<car>.jpg`, `SCENES` in `src/art.js`, with
   crops and floor lines). The one for the car you drive loads at startup, the rest in the
   background; the old garage (`bg-garage.jpg`) only shows while a scene is still loading.

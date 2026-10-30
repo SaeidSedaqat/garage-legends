@@ -1,7 +1,7 @@
 import { ART, CARS, OPPONENTS } from '../data.js';
 import {
   GARAGE, MOCKUP, PART_ICONS, PORTRAITS, PROPS, SCENES, addTex, drawShadow, drawWrench, ensureCar, paintedWrench, queueCar,
-  registerPartIcons, registerPortraits, registerProps,
+  registerPartIcons, registerPortraits, registerProps, registerUiIcons, UI_ICONS,
 } from '../art.js';
 import { checkAchievements, collectOffline, save, state } from '../state.js';
 import { platform } from '../platform.js';
@@ -27,6 +27,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image(PROPS.key, PROPS.file);
     this.load.image(PORTRAITS.key, PORTRAITS.file);
     this.load.image(PART_ICONS.key, PART_ICONS.file);
+    this.load.image(UI_ICONS.key, UI_ICONS.file);
     for (const file of new Set(carArt().map(([, s]) => s.file))) this.load.image(file, file);
   }
 
@@ -37,6 +38,7 @@ export class BootScene extends Phaser.Scene {
     registerProps(this, this.textures.get(PROPS.key).getSourceImage());
     registerPortraits(this.textures.get(PORTRAITS.key).getSourceImage());
     registerPartIcons(this.textures.get(PART_ICONS.key).getSourceImage());
+    registerUiIcons(this.textures.get(UI_ICONS.key).getSourceImage());
     addTex(this, 'wrench', paintedWrench() || drawWrench());
     bus.emit('change', 'art'); // the upgrade panel was drawn before the icons were in
     this.textures.remove(PROPS.key);

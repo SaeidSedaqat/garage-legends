@@ -376,6 +376,24 @@ export function partIconURL(id) {
   return iconCache.get(id);
 }
 
+// Painted interface icons on assets/ui-icons.jpg: the garage upgrades, the Race and
+// achievements buttons, and the cash badge.
+export const UI_ICONS = {
+  key: 'ui-icons', file: 'assets/ui-icons.jpg',
+  crops: {
+    tap: [104, 54, 213, 319], crew: [472, 87, 285, 272], rep: [908, 73, 241, 298],
+    race: [80, 471, 281, 258], trophy: [489, 472, 255, 259], cash: [883, 500, 281, 225],
+  },
+};
+let uiSheet = null;
+export const registerUiIcons = img => { uiSheet = img; };
+export function uiIconURL(name) {
+  if (!uiSheet || !UI_ICONS.crops[name]) return null;
+  const id = `ui:${name}`;
+  if (!iconCache.has(id)) iconCache.set(id, cutout(uiSheet, UI_ICONS.crops[name]).toDataURL());
+  return iconCache.get(id);
+}
+
 // The painted steel wrench, recoloured gold by brightness (dark outlines stay dark).
 export function paintedWrench() {
   if (!portraitSheet) return null;
