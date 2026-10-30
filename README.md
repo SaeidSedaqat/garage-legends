@@ -69,6 +69,7 @@ while you're away (up to 2 hours).
 | `src/scenes/` | Phaser scenes: boot, garage, race |
 | `assets/` | Car, prop and background art |
 | `tools/balance.html` | Balance check: win rates and medal times per event, plus the pacing bot |
+| `tools/promo.html` | Builds the store cover (1280×720), icon (512×512) and tab icon from the game's own cars, scenes and logo, ready to download |
 
 ## Balancing
 

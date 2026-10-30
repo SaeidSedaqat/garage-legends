@@ -131,6 +131,9 @@ function keyOut(img, [cx, cy, cw, ch], flip = false) {
   return c;
 }
 
+// Cuts any crop of a sheet out of its magenta background (tools/promo.html uses this too).
+export const cutout = (img, crop) => keyOut(img, crop);
+
 const MAX_CAR_W = 900; // side sprites are shrunk to this; the race never shows them larger
 
 // Cuts a car out of its magenta background. `spec` comes from data.js: the crop box and

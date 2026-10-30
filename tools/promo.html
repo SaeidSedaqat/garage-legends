@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Garage Legends promo images</title>
+  <style>
+    body { font: 14px/1.4 "Segoe UI", system-ui, sans-serif; margin: 24px; background: #121925; color: #f4efe6; }
+    h1 { margin: 0 0 6px; }
+    p { color: #9fb0c3; max-width: 760px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
+    label { display: grid; gap: 4px; font-weight: 700; font-size: 12px; color: #9fb0c3; }
+    select, button, a.btn { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid #2b3a4f; background: #243248; color: #f4efe6; text-decoration: none; cursor: pointer; }
+    a.btn { background: #2ea85f; border-color: #2ea85f; font-weight: 700; }
+    .out { display: flex; flex-wrap: wrap; gap: 24px; align-items: start; }
+    figure { margin: 0; display: grid; gap: 8px; }
+    figcaption { display: flex; gap: 10px; align-items: center; font-weight: 700; }
+    canvas { border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); max-width: 100%; }
+    #cover { width: 640px; }
+    #icon { width: 256px; }
+    #favicon { width: 64px; image-rendering: auto; }
+  </style>
+</head>
+<body>
+  <h1>Promo images</h1>
+  <p>Store art built from the game's own original cars, scenes and logo, so it's licence-safe and matches the game. Pick a scene and cars, then download. Sizes are what web game portals ask for: a 1280×720 cover and a 512×512 icon.</p>
+  <div class="controls">
+    <label>Scene <select id="scene"></select></label>
+    <label>Front car <select id="front"></select></label>
+    <label>Back car <select id="back"></select></label>
+    <label>Icon car <select id="iconCar"></select></label>
+  </div>
+  <div class="out">
+    <figure><canvas id="cover" width="1280" height="720"></canvas><figcaption>Cover 1280×720 <a class="btn" id="dl-cover" download="garage-legends-cover.png">Download</a></figcaption></figure>
+    <figure><canvas id="icon" width="512" height="512"></canvas><figcaption>Icon 512×512 <a class="btn" id="dl-icon" download="garage-legends-icon.png">Download</a></figcaption></figure>
+    <figure><canvas id="favicon" width="64" height="64"></canvas><figcaption>Tab icon 64×64 <a class="btn" id="dl-favicon" download="favicon.png">Download</a></figcaption></figure>
+  </div>
+  <script type="module">
+    import { CARS, ART } from '../src/data.js';
+    import { SCENES, cutout } from '../src/art.js';
+
+    const load = src => new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = `../${src}`; });
+    const $ = id => document.getElementById(id);
+    const [pose, logo] = await Promise.all([load('assets/cars-pose.webp'), load('assets/logo.png')]);
+    const scenes = {}, cars = {};
+    const sceneImg = async id => (scenes[id] ??= await load(SCENES[id].file));
+    const carImg = id => (cars[id] ??= cutout(pose, ART[CARS.find(c => c.id === id).art].pose.crop));
+
+    const fill = (sel, value) => { for (const c of CARS) sel.add(new Option(c.name, c.id)); sel.value = value; };
+    for (const id of Object.keys(SCENES)) $('scene').add(new Option(CARS.find(c => c.id === id).name + "'s scene", id));
+    $('scene').value = 'bulldog';
+    fill($('front'), 'bulldog');
+    fill($('back'), 'furia');
+    fill($('iconCar'), 'bulldog');
+
+    // Draws a scene to cover a w×h box (its crop applied) and returns the y of its floor line.
+    async function drawScene(x, id, w, h) {
+      const sc = SCENES[id], img = await sceneImg(id);
+      const [cx, cy, cw, ch] = sc.crop || [0, 0, img.width, img.height];
+      const s = Math.max(w / cw, h / ch), dw = cw * s, dh = ch * s, dx = (w - dw) / 2, dy = (h - dh) / 2;
+      x.drawImage(img, cx, cy, cw, ch, dx, dy, dw, dh);
+      return dy + dh * sc.ground;
+    }
+
+    // A car standing with its wheels on `ground`, horizontally centred on cx, with a soft shadow.
+    function drawCar(x, id, cx, ground, width) {
+      const c = carImg(id), h = (c.height * width) / c.width;
+      const g = x.createRadialGradient(cx, ground, 0, cx, ground, width * 0.5);
+      g.addColorStop(0, 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.save(); x.scale(1, 0.18); x.fillStyle = g; x.beginPath(); x.arc(cx, ground / 0.18, width * 0.5, 0, Math.PI * 2); x.fill(); x.restore();
+      x.drawImage(c, cx - width / 2, ground - h * 0.98, width, h);
+    }
+
+    async function drawCover() {
+      const cv = $('cover'), x = cv.getContext('2d'), W = cv.width, H = cv.height;
+      x.clearRect(0, 0, W, H);
+      const ground = await drawScene(x, $('scene').value, W, H);
+      // darker sky behind the logo, so it reads on any scene
+      const top = x.createLinearGradient(0, 0, 0, H * 0.5);
+      top.addColorStop(0, 'rgba(10,12,24,0.55)'); top.addColorStop(1, 'rgba(10,12,24,0)');
+      x.fillStyle = top; x.fillRect(0, 0, W, H * 0.5);
+      const g = Math.min(H * 0.97, Math.max(ground, H * 0.86));
+      drawCar(x, $('back').value, W * 0.69, g - H * 0.07, W * 0.44);
+      drawCar(x, $('front').value, W * 0.35, g + H * 0.02, W * 0.56);
+      const lw = W * 0.44, lh = (logo.height * lw) / logo.width;
+      x.drawImage(logo, (W - lw) / 2, H * 0.03, lw, lh);
+      $('dl-cover').href = cv.toDataURL('image/png');
+    }
+
+    async function drawIcon() {
+      const cv = $('icon'), x = cv.getContext('2d'), S = cv.width;
+      x.clearRect(0, 0, S, S);
+      const ground = await drawScene(x, $('scene').value, S, S);
+      const v = x.createRadialGradient(S / 2, S / 2, S * 0.3, S / 2, S / 2, S * 0.75);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+      x.fillStyle = v; x.fillRect(0, 0, S, S);
+      drawCar(x, $('iconCar').value, S * 0.5, Math.min(S * 0.9, Math.max(ground, S * 0.8)), S * 0.96);
+      $('dl-icon').href = cv.toDataURL('image/png');
+      const f = $('favicon'), fx = f.getContext('2d');
+      fx.imageSmoothingQuality = 'high';
+      fx.clearRect(0, 0, 64, 64);
+      fx.drawImage(cv, 0, 0, 64, 64);
+      $('dl-favicon').href = f.toDataURL('image/png');
+    }
+
+    const redraw = () => Promise.all([drawCover(), drawIcon()]);
+    for (const id of ['scene', 'front', 'back', 'iconCar']) $(id).addEventListener('change', redraw);
+    await redraw();
+    window.promoReady = true;
+  </script>
+</body>
+</html>
