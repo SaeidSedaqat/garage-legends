@@ -1,6 +1,6 @@
 // Car parts (GDD §8): what a car's parts do to its stats and what the next level costs.
 // Pure functions of a car definition and its part levels, shared by the game and tools/balance.js.
-import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP } from './data.js';
+import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP, TAP, CREW } from './data.js';
 
 export const partName = (car, id) => car.partNames?.[id] || PARTS[id].name;
 export const blankTune = car => Object.fromEntries(car.parts.map(id => [id, 0]));
@@ -28,6 +28,12 @@ export const roundNice = n => { const p = Math.pow(10, Math.max(0, Math.floor(Ma
 
 // Price of the next level of a part at level `lvl`, or null once it's maxed.
 export const partCost = (car, id, lvl) => (lvl >= PART_LEVELS ? null : roundNice(car.upgradeBase * PART_COST * PARTS[id].cost * Math.pow(PART_GROWTH, lvl)));
+
+// Garage upgrades, which never max out: what a level gives and what the next one costs.
+export const tapBase = lvl => 1 + lvl;
+export const tapCost = lvl => roundNice(TAP.cost * Math.pow(lvl + 1, TAP.pow));
+export const crewRate = lvl => CREW.base + CREW.step * lvl;
+export const crewCost = lvl => roundNice(CREW.cost * Math.pow(lvl + 1, CREW.pow));
 
 export function partLock(car, tune, id) {
   const needs = PARTS[id].needs;

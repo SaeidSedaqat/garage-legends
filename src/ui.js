@@ -6,11 +6,11 @@ import {
   envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave, achievementProgress,
 } from './state.js';
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, GARAGE_LEVELS, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
+  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
   ACHIEVEMENTS,
 } from './data.js';
 import { pr, zones } from './physics.js';
-import { partName } from './tuning.js';
+import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
 import { carPreview } from './art.js';
@@ -293,9 +293,9 @@ function upgButton({ action, id, icon, name, desc, effect, lvl, max, gain, cost,
   const price = tag || (lock ? `${ICONS.lock}<span>${lock}</span>` : cost == null ? 'MAX' : fmt(cost));
   return `<button class="upg-btn ${kind}" data-action="${action}" data-id="${id}"${kind ? '' : ` data-cost="${cost}"`}${lock ? ` data-lock="${lock}"` : ''}>
     <span class="ub-icon">${ICONS[icon]}</span>
-    <span class="ub-name">${name}${lvl != null ? ` <small>Lv ${lvl}/${max}</small>` : ''}</span>
+    <span class="ub-name">${name}${lvl != null ? ` <small>Lv ${lvl}${max ? `/${max}` : ''}</small>` : ''}</span>
     <span class="ub-desc">${desc}${effect ? `<em>${effect}</em>` : ''}</span>
-    ${lvl != null ? pips(lvl, max) : ''}
+    ${lvl != null && max ? pips(lvl, max) : ''}
     ${gain && (!kind || tag) ? `<span class="ub-gain">${gain}</span>` : ''}
     <span class="ub-cost">${price}</span>
   </button>`;
@@ -321,15 +321,17 @@ function renderUpgrades() {
     });
   }).join('');
   const cp = state.clickPower, au = state.automation, stars = totalStars(), mult = 1 + STAR_BONUS * stars;
+  const perTap = lvl => fmt(Math.round(tapBase(lvl) * mult));
   const garage = upgButton({
-    action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, max: GARAGE_LEVELS, cost: garageCost('click'),
-    desc: 'More cash for every tap on your car.',
-    gain: cp < GARAGE_LEVELS ? `${fmt(Math.round(CLICK_BASE[cp] * mult))} → ${fmt(Math.round(CLICK_BASE[cp + 1] * mult))} / tap` : '',
+    action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, cost: garageCost('click'),
+    desc: 'More cash for every tap on your car. No limit: keep upgrading.',
+    gain: `${perTap(cp)} → ${perTap(cp + 1)} / tap`,
   }) + upgButton({
-    action: 'garage', id: 'auto', icon: 'crew', name: 'Pit Crew', lvl: au, max: GARAGE_LEVELS, cost: garageCost('auto'),
-    desc: "Taps your car for you, even while you're away (half rate, up to 2 h).",
+    action: 'garage', id: 'auto', icon: 'crew', name: 'Pit Crew', lvl: autoUnlocked() ? au : null, cost: garageCost('auto'),
+    desc: autoUnlocked() ? "Taps your car for you, even while you're away (half rate, up to 2 h). Each level makes them tap faster."
+      : `Win ${eventDef(AUTO_UNLOCK).name} and your crew starts tapping your car at ${crewRate(0)} taps/s. Upgrades make them faster.`,
     lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
-    gain: au < GARAGE_LEVELS ? `${AUTO_CPS[au]} → ${AUTO_CPS[au + 1]} taps / s` : '',
+    gain: `${crewRate(au)} → ${crewRate(au + 1)} taps / s`,
   }) + upgButton({
     action: 'rep', id: 'rep', icon: 'star', name: 'Reputation', desc: 'Every race star adds 5% to tap income and unlocks garage decor.',
     gain: `×${mult.toFixed(2)} tap income`, tag: `★ ${stars}`,

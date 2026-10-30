@@ -1,9 +1,9 @@
 // Balance check (GDD §17.2). Open tools/balance.html through the local server to run it.
 // For every event it finds the opponent PR at which a player at the recommended PR with
 // Good launches and Good shifts wins ~70%, and generates the Silver/Gold medal times.
-import { CARS, EVENTS, OPPONENTS, DIST, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, CLICK_COST, AUTO_CPS, AUTO_COST, STAR_BONUS, LEGEND } from '../src/data.js';
+import { CARS, EVENTS, OPPONENTS, DIST, PART_LEVELS, STAR_BONUS, LEGEND } from '../src/data.js';
 import { pr, rng, hash, runSolo, aiInputs } from '../src/physics.js';
-import { blankTune, partCost, partLock, tuned } from '../src/tuning.js';
+import { blankTune, crewCost, crewRate, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
 
 const SAMPLES = 400;
 const TARGET_WIN = 0.7;
@@ -47,11 +47,12 @@ export function pacing({ tapsPerSec = 2, raceS = 35, seed = 1 } = {}) {
   let t = 0, cash = 0, car = 'kaze', cp = 0, auto = 0, stars = 0, idx = 0;
   const won = new Set(), log = {}, buys = [], mark = k => { log[k] ??= t; };
   const spec = id => tuned(def(id), tune[id]);
-  const clickV = () => Math.round(CLICK_BASE[cp] * (1 + STAR_BONUS * stars));
+  const clickV = () => Math.round(tapBase(cp) * (1 + STAR_BONUS * stars));
+  const crew = () => (won.has('country_2') ? crewRate(auto) : 0);
   const farmEvent = () => EVENTS.filter(x => won.has(x.id)).sort((a, b) => b.win - a.win)[0];
-  const income = () => Math.max(tapsPerSec * clickV(), (farmEvent()?.win || 0) / raceS) + AUTO_CPS[auto] * clickV();
+  const income = () => Math.max(tapsPerSec * clickV(), (farmEvent()?.win || 0) / raceS) + crew() * clickV();
   const buy = (what, c) => { cash -= c; buys.push({ what, t, cost: c, secs: Math.round(c / income()) }); };
-  const pass = s => { cash += AUTO_CPS[auto] * clickV() * s; t += s; };
+  const pass = s => { cash += crew() * clickV() * s; t += s; };
 
   while (t < 8 * 3600 && idx < EVENTS.length) {
     const e = EVENTS[idx], mine = pr(spec(car));
@@ -65,11 +66,11 @@ export function pacing({ tapsPerSec = 2, raceS = 35, seed = 1 } = {}) {
       continue;
     }
     // shopping: the next car in the roster (what the goal chip points at), an upgrade, or a
-    // garage upgrade that pays back within 2 minutes
+    // garage upgrade costing under 90 s (Tap Power) or 2 min (Pit Crew) of income
     const nextCar = CARS.find(c => !tune[c.id] && !c.requires);
     if (nextCar && cash >= nextCar.price) { buy(`car ${nextCar.tier}`, nextCar.price); tune[nextCar.id] = blankTune(nextCar); car = nextCar.id; mark(`car ${nextCar.tier}`); continue; }
-    if (cp < GARAGE_LEVELS && cash >= CLICK_COST[cp + 1] && CLICK_COST[cp + 1] / ((CLICK_BASE[cp + 1] - CLICK_BASE[cp]) * (1 + STAR_BONUS * stars) * tapsPerSec) < 180) { buy(`tap ${cp + 1}`, CLICK_COST[++cp]); continue; }
-    if (won.has('country_2') && auto < GARAGE_LEVELS && cash >= AUTO_COST[auto + 1] && AUTO_COST[auto + 1] / ((AUTO_CPS[auto + 1] - AUTO_CPS[auto]) * clickV()) < 300) { buy(`crew ${auto + 1}`, AUTO_COST[++auto]); continue; }
+    if (cash >= tapCost(cp) && tapCost(cp) < income() * 90) { buy(`tap ${cp + 1}`, tapCost(cp++)); continue; }
+    if (won.has('country_2') && cash >= crewCost(auto) && crewCost(auto) < income() * 120) { buy(`crew ${auto + 1}`, crewCost(auto++)); continue; }
     const c = def(car);
     const ups = c.parts.filter(k => partCost(c, k, tune[car][k]) != null && !partLock(c, tune[car], k)).map(k => {
       const cost = partCost(c, k, tune[car][k]), gain = pr(tuned(c, { ...tune[car], [k]: tune[car][k] + 1 })) - mine;

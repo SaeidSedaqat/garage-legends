@@ -232,12 +232,13 @@ export const PART_GROWTH = 1.8;
 export const PART_COST = 4; // × each car's upgradeBase
 export const NITRO_STEP = 0.125; // nitro burst strength per level at fx 1 (+50% at full tune)
 
-// Garage upgrades: few, big steps. Index = level.
-export const GARAGE_LEVELS = 5;
-export const CLICK_BASE = [1, 3, 8, 20, 50, 110];
-export const CLICK_COST = [null, 200, 1200, 9000, 45000, 200000];
-export const AUTO_CPS = [0, 0.5, 1.2, 2.2, 3.5, 5];
-export const AUTO_COST = [null, 1500, 12000, 70000, 300000, 1200000];
+// Garage upgrades have no top level: small, frequent steps that get steadily dearer.
+// Tap Power: a tap is worth 1 + level (× the star bonus); level n+1 costs cost × (n + 1)^pow,
+// so a level stays within a minute or two of income all game and gets bought often.
+export const TAP = { cost: 75, pow: 1.8 };
+// Pit Crew: unlocking it gives `base` taps/s for free, each level adds `step`; level n+1 costs
+// cost × (n + 1)^pow.
+export const CREW = { base: 0.5, step: 0.25, cost: 1500, pow: 2 };
 export const AUTO_UNLOCK = 'country_2';
 
 export const CRIT = { chance: 0.04, mult: 5 };
@@ -276,7 +277,7 @@ export const ACHIEVEMENTS = [
   { id: 'comeback', name: 'Comeback Kid', desc: 'Win after trailing by half a second', track: 'comebacks', goal: 1, reward: 400 },
   { id: 'champ_country', name: 'Country Champ', desc: 'Win Countryside Champion', track: 'country_5', goal: 1, reward: 300 },
   { id: 'flawless', name: 'Flawless', desc: 'Win with every shift perfect', track: 'flawlessWins', goal: 1, reward: 300 },
-  { id: 'auto_5', name: 'Crew Chief', desc: 'Max out Garage Automation', track: 'automation', goal: 5, reward: 3000 },
+  { id: 'auto_5', name: 'Crew Chief', desc: 'Pit Crew level 10', track: 'automation', goal: 10, reward: 3000 },
   { id: 'perfect_100', name: 'Gearhead', desc: 'Make 100 perfect shifts', track: 'perfectShifts', goal: 100, reward: 3000 },
   { id: 'max_upgrade', name: 'Maxed Out', desc: 'Max out any car part', track: 'maxLevel', goal: PART_LEVELS, reward: 150 },
   { id: 'cars_6', name: 'Showroom', desc: 'Own 6 cars', track: 'cars', goal: 6, reward: 6000 },

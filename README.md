@@ -26,7 +26,8 @@ Close the black window to stop it.
     Each part has 4 levels; together they add about 30% PR. Gearbox parts widen the shift zones,
     tires, slicks and AWD soften a slow launch, and nitrous, battery and hybrid parts make nitro
     stronger.
-  - Garage: Tap Power and Pit Crew (5 levels each; the crew unlocks after winning Local Rival),
+  - Garage: Tap Power (+$1 a tap per level, no limit) and Pit Crew (taps 0.5 times a second as
+    soon as Local Rival is won; each level adds 0.25 taps/s, no limit),
     plus Reputation (stars and garage decor).
 - **Race:** press and hold the button (or Space) when the amber lights come on, then let go the
   instant the light turns GREEN: the launch is scored on reaction time (under 0.2 s is perfect).
@@ -96,15 +97,16 @@ replays its best event when that beats tapping. At 2 taps/s it hits the GDD §9.
 
 | Milestone | Target | Bot (1.5 / 2 / 2.5 taps/s) |
 |---|---|---|
-| Car 2 | 4–6 min | 8 / 6 / 5 min |
-| Car 3 | 12–18 min | 24 / 19 / 16 min |
-| Countryside Champion | 15–25 min | 25 / 20 / 17 min |
-| City unlocked (Coastal Champion) | 70–90 min | 98 / 84 / 75 min |
-| City Champion | 3–3.5 h | 3h13 / 3h01 / 2h52 |
+| Car 2 | 4–6 min | 5 / 4 / 3 min |
+| Car 3 | 12–18 min | 17 / 18 / 16 min |
+| Countryside Champion | 15–25 min | 18 / 18 / 17 min |
+| City unlocked (Coastal Champion) | 70–90 min | 95 / 85 / 73 min |
+| City Champion | 3–3.5 h | 3h26 / 3h16 / 3h04 |
 
-Purchases are few and each one is worth saving for. The bot makes about 91 purchases on the way
-to City Champion. Each one costs a median of about 80 seconds of its income at the time, and
-almost none cost under 20 seconds. The first upgrade costs $60 (about 30 s of tapping).
+Car parts and cars are few and each one is worth saving for; Tap Power and Pit Crew are the
+small, frequent buys in between. The bot makes about 128 purchases on the way to City Champion
+(about 34 of them Tap Power), each costing a median of about 70 seconds of its income at the
+time. The first part upgrade costs $60 (about 30 s of tapping).
 `pacing()` returns every purchase with its cost in seconds of income, and `carGains()` checks
 that every car's parts add about +30% PR.
 
@@ -112,7 +114,9 @@ To get there:
 - Race rewards are 80% / 60% / 37.5% of the GDD table (Countryside / Coastal / City).
 - Car prices: Hikari $2,500, Kodiak $18,000, Valken $40,000, Sora $120,000, Furia $220,000.
 - Part prices are set per car (`upgradeBase`).
-- Tap Power and Pit Crew have 5 levels, with bigger steps than before.
+- Tap Power and Pit Crew never max out. Level n costs `cost × n^pow` (`TAP`, `CREW` in
+  `src/data.js`), so a level stays within a minute or two of income and gets bought often: the bot
+  buys about 34 Tap Power levels on the way to City Champion.
 
 ## Placeholders
 

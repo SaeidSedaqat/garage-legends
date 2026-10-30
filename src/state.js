@@ -1,10 +1,10 @@
 // Player progress, economy rules and saving (GDD §8, §9, §13).
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, PARTS, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, CLICK_COST, AUTO_CPS,
-  AUTO_COST, AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND, ACHIEVEMENTS,
+  CARS, EVENTS, ENVS, OPPONENTS, PARTS, PART_LEVELS, CREW,
+  AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND, ACHIEVEMENTS,
 } from './data.js';
 import { pr } from './physics.js';
-import { blankTune, partCost, partLock, tuned } from './tuning.js';
+import { blankTune, crewCost, crewRate, partCost, partLock, tapBase, tapCost, tuned } from './tuning.js';
 import { bus } from './events.js';
 
 const KEY = 'garageLegends.save.v2';
@@ -21,7 +21,7 @@ const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motio
 
 function fresh() {
   return {
-    v: 3, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune(carDef('kaze')) },
+    v: 4, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune(carDef('kaze')) },
     clickPower: 0, automation: 0, events: {}, milestones: [], tutorial: {}, legend: { round: 1, best: 0 }, achievements: {},
     stats: {
       clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0,
@@ -64,8 +64,16 @@ function migrateParts(s) {
     const old = s.tune[id] || {};
     s.tune[id] = Object.fromEntries(carDef(id).parts.map(p => [p, scale(old[oldKey(PARTS[p].fx)], PART_LEVELS)]));
   }
-  s.clickPower = scale(s.clickPower, GARAGE_LEVELS);
-  s.automation = scale(s.automation, GARAGE_LEVELS);
+  s.clickPower = scale(s.clickPower, 5);
+  s.automation = scale(s.automation, 5);
+}
+
+// v3 saves had 5-level garage upgrades. Tap Power keeps the same cash per tap; Pit Crew keeps
+// about the same taps per second.
+function migrateGarage(s) {
+  const tap = [1, 3, 8, 20, 50, 110], crew = [0, 0.5, 1.2, 2.2, 3.5, 5];
+  s.clickPower = tap[level(s.clickPower, 5)] - 1;
+  s.automation = Math.max(0, Math.round((crew[level(s.automation, 5)] - CREW.base) / CREW.step));
 }
 
 // Fills missing fields, clamps numbers and drops unknown ids, so a damaged save can't crash the game.
@@ -74,13 +82,14 @@ function validate(raw) {
   s.cash = Math.max(0, Math.floor(+s.cash || 0));
   s.owned = ['kaze', ...(s.owned || []).filter(id => id !== 'kaze' && carDef(id))];
   if (!(s.v >= 3)) migrateParts(s);
-  s.v = 3;
+  if (!(s.v >= 4)) migrateGarage(s);
+  s.v = 4;
   const tune = {};
   for (const id of s.owned) tune[id] = Object.fromEntries(carDef(id).parts.map(k => [k, level(s.tune?.[id]?.[k], PART_LEVELS)]));
   s.tune = tune;
   if (!s.owned.includes(s.car)) s.car = 'kaze';
-  s.clickPower = level(s.clickPower, GARAGE_LEVELS);
-  s.automation = level(s.automation, GARAGE_LEVELS);
+  s.clickPower = level(s.clickPower, 10000);
+  s.automation = level(s.automation, 10000);
   const events = {};
   for (const [id, e] of Object.entries(s.events || {})) {
     if (EVENTS.some(x => x.id === id)) events[id] = { won: !!e.won, stars: Math.min(3, Math.max(0, e.stars | 0)), best: e.best > 0 ? e.best : null };
@@ -195,11 +204,13 @@ export function selectCar(id) {
 // ---------------------------------------------------------------- garage upgrades and income
 
 export const totalStars = () => Object.values(state.events).reduce((n, e) => n + e.stars, 0);
-export const clickValue = () => Math.max(1, Math.round(CLICK_BASE[state.clickPower] * (1 + STAR_BONUS * totalStars())));
-export const autoRate = () => AUTO_CPS[state.automation] * clickValue();
+export const clickValue = () => Math.max(1, Math.round(tapBase(state.clickPower) * (1 + STAR_BONUS * totalStars())));
+// the Pit Crew starts tapping as soon as it's unlocked
+export const crewTaps = () => (autoUnlocked() ? crewRate(state.automation) : 0);
+export const autoRate = () => crewTaps() * clickValue();
 export const autoUnlocked = () => !!state.events[AUTO_UNLOCK]?.won;
 
-export const garageCost = kind => (kind === 'click' ? CLICK_COST[state.clickPower + 1] : AUTO_COST[state.automation + 1]) ?? null;
+export const garageCost = kind => (kind === 'click' ? tapCost(state.clickPower) : crewCost(state.automation));
 export function buyGarage(kind) {
   const cost = garageCost(kind);
   if (cost == null || (kind === 'auto' && !autoUnlocked()) || !spend(cost)) return false;
