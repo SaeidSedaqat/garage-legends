@@ -28,11 +28,6 @@ export function zones(spec) {
   };
 }
 
-export function launchBand(spec) {
-  const w = SIM.launchWidth * (0.8 + spec.launch / 250) * (1 + 0.025 * (spec.tires || 0)) * (spec.quirk === 'wheelspin' ? 0.75 : 1);
-  return [SIM.launchCenter - w / 2, SIM.launchCenter + w / 2];
-}
-
 const vMaxOf = spec => (90 + 1.6 * spec.topSpeed) * 0.44704;
 
 // Gearing is set per race distance: the shifts come at even intervals, the last one about
@@ -70,8 +65,7 @@ function trial(spec, distance, ends) {
   let target = plannedShift(spec, 'good'), t = 0;
   for (; !r.finished && t < 120; t += dt) {
     if (!r.launched && t >= 0.3) {
-      r.rpm = plannedRev(spec, 'good');
-      launch(r, 0.3);
+      launch(r, 0.3, false, scriptedLaunch('good', 0.3));
     }
     if (r.launched && r.shifting <= 0 && !topGear(r) && ready(r, target)) shift(r);
     if (topGear(r) && r.boost <= 0) nitro(r);
@@ -128,15 +122,13 @@ function rpmOf(r) {
   return entry + ((1 - entry) * (r.v - vS)) / (vE - vS);
 }
 
-// Scores a launch from the rev held at release and the reaction time (GDD §6.4).
-export function launch(r, reaction, jump = false) {
-  const [lo, hi] = launchBand(r.spec), c = (lo + hi) / 2, half = (hi - lo) / 2;
-  let rpmScore = 0.3, label = r.rpm < lo ? 'bog' : 'wheelspin';
-  if (Math.abs(r.rpm - c) <= half * 0.3) { rpmScore = 1; label = null; }
-  else if (r.rpm >= lo && r.rpm <= hi) { rpmScore = 0.7; label = null; }
-  const reactScore = jump ? 0.3 : reaction <= 0.25 ? 1 : reaction <= 0.45 ? 0.7 : 0.3;
-  r.launchQ = rpmScore * 0.6 + reactScore * 0.4;
-  r.launchLabel = jump ? 'jump' : label || (r.launchQ >= 0.95 ? 'perfect' : 'good');
+// Scores a launch on the reaction time from green to letting go of the button (GDD §6.4).
+// Scripted drivers pass their own launch quality (0–1) as `q` instead.
+const REACTION = [[0.2, 1, 'perfect'], [0.35, 0.75, 'good'], [0.6, 0.5, 'slow']];
+export function launch(r, reaction, jump = false, q = null) {
+  const [, score, label] = REACTION.find(([t]) => reaction <= t) || [0, 0.3, 'late'];
+  r.launchQ = q ?? (jump ? 0.3 : score);
+  r.launchLabel = jump ? 'jump' : q == null ? label : q >= 0.95 ? 'perfect' : 'good';
   r.reaction = reaction;
   r.jump = jump;
   r.launched = true;
@@ -177,7 +169,9 @@ export function step(r, dt, distance) {
   const s = r.spec, n = r.ends.length;
   let mult = 1;
   if (r.launchT < SIM.launchFade) {
-    mult *= 1 - (1 - r.launchQ) * 0.45 * (1 - s.launch / 200) * (1 - r.launchT / SIM.launchFade);
+    // a weaker launch costs grip for a moment; tire parts soften that, a wheelspin-prone car feels it more
+    const loss = (1 - 0.03 * (s.tires || 0)) * (s.quirk === 'wheelspin' ? 1.3 : 1);
+    mult *= 1 - (1 - r.launchQ) * 0.45 * loss * (1 - s.launch / 200) * (1 - r.launchT / SIM.launchFade);
   }
   r.launchT += dt;
   if (r.effect) {
@@ -214,13 +208,11 @@ export function step(r, dt, distance) {
 
 // ---------------------------------------------------------------- scripted drivers
 
-// The rev an AI or test driver holds at launch: inside the band's sweet spot, inside the
-// band, or outside it.
-export function plannedRev(spec, quality) {
-  const [lo, hi] = launchBand(spec), c = (lo + hi) / 2;
-  if (quality === 'perfect') return c;
-  if (quality === 'good') return c + (hi - c) * 0.7;
-  return lo - 0.08;
+// An AI or test driver's launch quality: how cleanly it gets off the line ('perfect', 'good' or
+// 'poor') blended with its reaction time.
+export function scriptedLaunch(quality, reaction) {
+  const clean = { perfect: 1, good: 0.7 }[quality] ?? 0.3;
+  return clean * 0.6 + (reaction <= 0.25 ? 1 : reaction <= 0.45 ? 0.7 : 0.3) * 0.4;
 }
 
 // RPM at which a driver shifts for a planned outcome. A late shift waits on the limiter.
@@ -259,8 +251,7 @@ export function runSolo(spec, distance, { reaction, launchQ, shiftQ, nitroQ = 'b
   let target = plannedShift(spec, shiftQ(0));
   for (let t = 0; !r.finished && t < 120; t += dt) {
     if (!r.launched && t >= reaction) {
-      r.rpm = plannedRev(spec, launchQ);
-      launch(r, reaction);
+      launch(r, reaction, false, scriptedLaunch(launchQ, reaction));
     }
     if (r.launched && r.shifting <= 0 && !topGear(r) && ready(r, target)) {
       shift(r);

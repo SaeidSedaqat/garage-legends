@@ -204,7 +204,7 @@ export const LEGEND = {
 
 // Every car has its own four parts (`parts` in CARS), picked from this library. Each level adds
 // PART_STEP × `fx` to the stats it names: `launch`, `accel`, `topSpeed` (+7.5% per level at fx 1),
-// `shift` (wider shift zones, quicker shifts), `grip` (wider launch band), `nitro` (stronger
+// `shift` (wider shift zones, quicker shifts), `grip` (less grip lost off a slow launch), `nitro` (stronger
 // nitro bursts). Levels 1–PART_LEVELS; level n costs upgradeBase × `cost` × PART_GROWTH^(n-1).
 // Each car's four parts together add about +30% PR at full tune.
 export const PARTS = {
@@ -212,7 +212,7 @@ export const PARTS = {
   bigblock: { name: 'Big-Block V8', icon: 'engine', desc: 'Brutal mid-range acceleration.', fx: { accel: 1.1 }, cost: 1.1 },
   turbo: { name: 'Turbo', icon: 'turbo', desc: 'More top speed.', fx: { topSpeed: 1 }, cost: 1.2, needs: ['engine', 2] },
   supercharger: { name: 'Supercharger', icon: 'turbo', desc: 'Instant boost: acceleration and launch.', fx: { accel: 0.6, launch: 0.5 }, cost: 1.15 },
-  tires: { name: 'Tires', icon: 'tire', desc: 'Launch grip and a wider launch band.', fx: { launch: 1, grip: 1 }, cost: 0.8 },
+  tires: { name: 'Tires', icon: 'tire', desc: 'Launch grip: a slow start costs less.', fx: { launch: 1, grip: 1 }, cost: 0.8 },
   slicks: { name: 'Drag Slicks', icon: 'tire', desc: 'Huge launch grip, tames wheelspin.', fx: { launch: 1.2, grip: 1.5 }, cost: 1 },
   awd: { name: 'AWD System', icon: 'awd', desc: 'All four wheels bite at launch.', fx: { launch: 1.2, grip: 1 }, cost: 1 },
   gearbox: { name: 'Gearbox', icon: 'gear', desc: 'Wider shift zones, quicker shifts.', fx: { shift: 1 }, cost: 0.9 },
@@ -302,13 +302,11 @@ export const SIM = {
   perfectBoost: { mult: 1.12, time: 1 },
   earlyBog: { mult: 0.75, time: 1 },
   limiterMult: 0.15,
-  launchCenter: 0.65,
-  launchWidth: 0.18,
   launchFade: 2,
   jumpHold: 0.6,
   lateWait: 0.35, // how long a "late" scripted driver sits on the limiter before shifting
-  // Rev-range fraction per second while holding. Releasing before green is a jump start, so the
-  // launch skill is when to start holding: slow enough that the needle sits in the band ~0.5 s.
+  // Rev-range fraction per second while holding before the start (just for show: the launch is
+  // scored on how fast the player lets go after green; letting go before green is a jump start).
   revRate: 0.35,
   revFall: 2.2,   // ... and while released
   lastShiftAt: 0.5, // gearing is set per distance so the last shift lands about this far in

@@ -9,7 +9,7 @@ import {
   CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
   ACHIEVEMENTS,
 } from './data.js';
-import { pr, zones, launchBand } from './physics.js';
+import { pr, zones } from './physics.js';
 import { partName } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
@@ -677,13 +677,12 @@ function buildTach(spec, redline) {
     const a0 = ang(f0), a1 = ang(f1), [x0, y0] = pol(a0, r), [x1, y1] = pol(a1, r);
     return `<path d="M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}" class="${cls}"/>`;
   };
-  const z = zones(spec), band = launchBand(spec);
+  const z = zones(spec);
   let s = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" class="t-face"/>';
   s += arc(0, 1, 41, 't-base');
   s += arc(z.good[0], z.good[1], 41, 't-good');
   s += arc(z.perfect[0], z.perfect[1], 41, 't-perfect');
   s += arc(Math.min(1, z.good[1] + 0.04), 1, 41, 't-red');
-  s += arc(band[0], band[1], 34, 't-launch');
   const max = Math.floor(redline / 1000);
   for (let i = 0; i <= max; i++) {
     const a = ang((i * 1000) / redline);
@@ -713,7 +712,7 @@ export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   $('speed').textContent = '0';
   $('race-gap').textContent = '';
   setPrimary('launch');
-  raceMsg('Hold on the ambers · needle in the yellow band · release on GREEN');
+  raceMsg('Press and hold on the yellow lights · let go on GREEN');
   $('progress').style.setProperty('--you', 0);
   $('progress').style.setProperty('--opp', 0);
   const btn = $('btn-shift');
@@ -726,7 +725,7 @@ export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   $('btn-pause').onclick = () => { sfx.click(); handlers.pause(); };
 }
 
-export function updateRace({ rpm, gear, mph, you, opp, zone, launched, inBand, gap, speed, nitro }) {
+export function updateRace({ rpm, gear, mph, you, opp, zone, launched, go, gap, speed, nitro }) {
   if (!hud) return;
   hud.needle.setAttribute('transform', `rotate(${(-135 + 270 * Math.min(1, rpm)).toFixed(1)} 50 50)`);
   const l = hud.last;
@@ -736,12 +735,12 @@ export function updateRace({ rpm, gear, mph, you, opp, zone, launched, inBand, g
   $('progress').style.setProperty('--you', you.toFixed(4));
   $('progress').style.setProperty('--opp', opp.toFixed(4));
   if (l.launched !== launched) { l.launched = launched; $('tach').classList.toggle('launched', launched); }
-  const key = launched ? zone : inBand ? 'band' : null;
+  const key = launched ? zone : go ? 'go' : null;
   if (l.zone !== key) {
     l.zone = key;
     hud.hub.setAttribute('class', `t-hub ${key || ''}`);
     const b = $('btn-shift');
-    b.classList.toggle('ready', key === 'good' || key === 'perfect' || key === 'band');
+    b.classList.toggle('ready', key === 'good' || key === 'perfect' || key === 'go');
     b.classList.toggle('over', key === 'limiter');
   }
   if (l.nitro !== nitro) {
@@ -811,7 +810,7 @@ function nitroText(list) {
   return [[n('boost') + n('chain'), 'fired'], [n('chain'), 'chained'], [n('early'), 'wasted']].filter(([v]) => v).map(([v, k]) => `${v} ${k}`).join(', ');
 }
 
-const LAUNCH_NAME = { perfect: 'Perfect launch', good: 'Good launch', bog: 'Bog', wheelspin: 'Wheelspin', jump: 'Jump start' };
+const LAUNCH_NAME = { perfect: 'Perfect launch', good: 'Good launch', slow: 'Slow start', late: 'Late start', jump: 'Jump start' };
 
 export function showResult(d, actions) {
   const t = v => (v == null ? '—' : `${v.toFixed(2)}s`);
@@ -823,7 +822,7 @@ export function showResult(d, actions) {
     tip = d.launch === 'jump' ? 'Release only once the light turns green.'
       : d.reaction > 0.6 ? 'Launch the moment the light turns green.'
       : d.nitros && !d.nitros.length ? 'Tap NITRO in top gear, and chain it when the button flashes.'
-      : d.launch === 'bog' ? 'Hold longer before green so the needle sits in the yellow launch band.'
+      : d.launch === 'slow' || d.launch === 'late' ? 'Let go the instant the light turns green: every tenth of a second counts.'
         : d.shifts.filter(s => s === 'perfect' || s === 'good').length < d.shifts.length / 2 ? 'Shift while the needle is in the green zone.'
           : carPR(state.car) < d.event.rec ? `Recommended PR is ${d.event.rec}. Upgrade or pick a faster car.` : 'So close. Try again!';
   }
@@ -867,7 +866,7 @@ export function showPracticeDone(d, actions) {
     <div class="result-title win">LESSON DONE</div>
     <div class="result-sub">Practice races pay nothing. Run it again any time from the Race menu.</div>
     <div class="skills">
-      ${skill('1 · Launch', LAUNCH_NAME[d.launch] || '—', d.launch === 'perfect' || d.launch === 'good', 'Press and hold on the yellow lights so the needle sits in the yellow band. Let go the moment the light turns GREEN.')}
+      ${skill('1 · Launch', LAUNCH_NAME[d.launch] || '—', d.launch === 'perfect' || d.launch === 'good', 'Press and hold on the yellow lights, then let go the instant the light turns GREEN. Under 0.2 s is a PERFECT launch.')}
       ${skill('2 · Shift', shiftText, n('early') + n('late') === 0, 'Tap when the needle reaches the GREEN zone. Its bright middle is a PERFECT shift: a burst of speed.')}
       ${skill('3 · Nitro', nitroText(d.nitros) || 'not used', d.nitros.includes('chain'), 'In top gear, tap for a burst. Tap again when the button flashes white to CHAIN a bigger one.')}
     </div>

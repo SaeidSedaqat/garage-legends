@@ -9,7 +9,7 @@ export const blankTune = car => Object.fromEntries(car.parts.map(id => [id, 0]))
 const GRADES = 10 / PART_LEVELS;
 
 // Racing stats after the parts, as the sim reads them: `trans` widens the shift zones,
-// `tires` the launch band, `nitroPower` strengthens nitro bursts.
+// `tires` softens a slow launch, `nitroPower` strengthens nitro bursts.
 export function tuned(car, tune = {}) {
   const gain = { launch: 0, accel: 0, topSpeed: 0 };
   const s = { ...car.stats, trans: 0, tires: 0, nitroPower: 0, quirk: car.launchQuirk };

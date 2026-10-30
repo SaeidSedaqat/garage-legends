@@ -18,12 +18,13 @@ Close the black window to stop it.
   - Left: the car's own four parts. Every car has its own set, e.g. the Bulldog has a Big-Block
     V8, Supercharger, Drag Slicks and Gearbox, and the Volta X has Twin Motors and Power Cells.
     Each part has 4 levels; together they add about 30% PR. Gearbox parts widen the shift zones,
-    tires and slicks widen the launch band, and nitrous, battery and hybrid parts make nitro
+    tires, slicks and AWD soften a slow launch, and nitrous, battery and hybrid parts make nitro
     stronger.
   - Right: Tap Power and Pit Crew (5 levels each; the crew unlocks after winning Local Rival),
     plus Reputation (stars and garage decor).
-- **Race:** hold the button (or Space) when the amber lights start so the needle sits in the yellow
-  launch band, then release on GREEN. Releasing early is a jump start. Tap to shift when the
+- **Race:** press and hold the button (or Space) when the amber lights come on, then let go the
+  instant the light turns GREEN: the launch is scored on reaction time (under 0.2 s is perfect).
+  Letting go early is a jump start. Tap to shift when the
   needle is in the green zone. The gearing is set per race distance, so shifts come through
   most of the race.
 - **Nitro (top gear):** the button turns blue. Each tap fires a 1.5 s burst. Tap again when the

@@ -2,7 +2,7 @@ import { DPR, FONT } from '../config.js';
 import { DIST, ENVS, OPPONENTS, SIM } from '../data.js';
 import { state, carDef, eventDef, tunedSpec, opponentSpec, recordRace } from '../state.js';
 import {
-  makeRacer, step, launch, shift, topGear, zones, launchBand, plannedRev, plannedShift, shiftReady, aiInputs, rng, hash,
+  makeRacer, step, launch, scriptedLaunch, shift, topGear, zones, plannedShift, shiftReady, aiInputs, rng, hash,
   nitro, nitroReady,
 } from '../physics.js';
 import { CarView, MOCKUP, PROPS, cover, addTex, drawGround, drawDashes, drawChecker, drawMarks } from '../art.js';
@@ -14,8 +14,8 @@ const KEYS = new Set(['Space', 'ArrowUp', 'ArrowRight', 'Enter', 'KeyW']);
 const LIGHT = { pre: 0xfff3c4, stage: 0xfff3c4, amber: 0xffb52e, green: 0x4dff7a, red: 0xff3b30 };
 const STAGE_AT = { pre: 0.3, stage: 0.8 };
 const IDLE_RPM = 0.12;
-const LAUNCH_TEXT = { perfect: 'PERFECT LAUNCH!', good: 'GOOD LAUNCH', bog: 'BOG', wheelspin: 'WHEELSPIN', jump: 'JUMP START' };
-const LAUNCH_KIND = { perfect: 'perfect', good: 'good', bog: 'early', wheelspin: 'early', jump: 'foul' };
+const LAUNCH_TEXT = { perfect: 'PERFECT LAUNCH!', good: 'GOOD LAUNCH', slow: 'SLOW START', late: 'LATE START', jump: 'JUMP START' };
+const LAUNCH_KIND = { perfect: 'perfect', good: 'good', slow: 'early', late: 'early', jump: 'foul' };
 const SHIFT_TEXT = { perfect: 'PERFECT SHIFT!', good: 'GOOD SHIFT', early: 'EARLY SHIFT', late: 'LATE SHIFT' };
 const NITRO_TEXT = { boost: ['NITRO!', 'good'], chain: ['CHAIN!', 'perfect'], early: ['WASTED', 'foul'] };
 
@@ -229,11 +229,6 @@ export class RaceScene extends Phaser.Scene {
     const { p, o, D } = this;
     this.t += dt;
 
-    // in the lesson, green waits until the held needle reaches the middle of the launch band
-    if (this.guide && this.holding && !this.green) {
-      const [lo, hi] = launchBand(p.spec);
-      if (p.rpm < (lo + hi) / 2) this.greenAt = Math.max(this.greenAt, this.t + 0.02);
-    }
     if (!this.green && this.t >= this.greenAt) {
       this.green = true;
       this.phase = 'racing';
@@ -291,12 +286,12 @@ export class RaceScene extends Phaser.Scene {
   // motion, and the rival waits at the line until the player launches. Steps: intro → amber →
   // rev → shift1 → shift2 → nitro → chain → free.
   lessonUpdate() {
-    const p = this.p, band = launchBand(p.spec), z = zones(p.spec);
+    const p = this.p, z = zones(p.spec);
     const btn = document.getElementById('btn-shift'), tach = document.getElementById('tach');
     let card = null;
     for (let guard = 0; guard < 4; guard++) {
       const step = this.step;
-      card = this.lessonCard(p, band, z, btn, tach);
+      card = this.lessonCard(p, z, btn, tach);
       if (this.step === step) break;
     }
     if (!card) return ui.lesson(null);
@@ -304,7 +299,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // The card for the current step; moves on to the next step when this one is done.
-  lessonCard(p, band, z, btn, tach) {
+  lessonCard(p, z, btn, tach) {
     const N = SIM.nitro;
     switch (this.step) {
       case 'intro':
@@ -325,11 +320,9 @@ export class RaceScene extends Phaser.Scene {
       case 'rev':
         if (p.launched) { this.step = 'shift1'; return null; }
         if (this.freeze === 'up') return [btn, { title: '1/3 · Launch', text: 'GREEN! Let go of the button NOW.', frozen: true }];
-        return [tach, {
+        return [btn, {
           title: '1/3 · Launch',
-          text: p.rpm < band[0] ? 'Keep holding. The needle climbs toward the YELLOW band on the rev meter…'
-            : p.rpm <= band[1] ? 'In the yellow band: perfect. Keep holding and wait for the GREEN light…'
-              : "Past the yellow band: the wheels will spin. Next time start holding a bit later. Let go on GREEN.",
+          text: 'Keep holding and watch the start lights. The moment they turn GREEN, let go: the quicker you react, the better your launch.',
         }];
       case 'shift1': {
         if (p.shifts.length) { this.step = 'shift2'; this.slow = 1; return null; }
@@ -393,8 +386,7 @@ export class RaceScene extends Phaser.Scene {
     const o = this.o;
     // in the coached first race the rival waits for the player, so a slow first try still wins
     if (!o.launched && o.time >= this.ai.reaction && (!this.guide || this.p.launched)) {
-      o.rpm = plannedRev(this.oSpec, this.ai.launchQ);
-      launch(o, this.ai.reaction);
+      launch(o, this.ai.reaction, false, scriptedLaunch(this.ai.launchQ, this.ai.reaction));
     }
     if (o.launched && o.shifting <= 0 && !topGear(o) && shiftReady(o, this.oppPlan)) {
       shift(o);
@@ -439,8 +431,8 @@ export class RaceScene extends Phaser.Scene {
     this.pitch += (Phaser.Math.Clamp(-p.a * 0.004, -0.05, 0.02) - this.pitch) * Math.min(1, dt * 8);
     this.pCar.c.rotation = this.pitch;
 
-    // tire smoke off the line, heavy after a wheelspin launch
-    const spin = p.launched && p.launchT < 1.2 ? (p.launchLabel === 'wheelspin' ? 1 : 0.35) * (1 - p.launchT / 1.2) : 0;
+    // tire smoke off the line, heavy off a slow launch in a wheelspin-prone car
+    const spin = p.launched && p.launchT < 1.2 ? (p.spec.quirk === 'wheelspin' && p.launchQ < 0.95 ? 1 : 0.35) * (1 - p.launchT / 1.2) : 0;
     if (spin > 0 && this.smoke.length < 60 && Math.random() < spin * 1.5) this.puff();
     // blue exhaust flame while a nitro burst burns, for both cars
     if (p.boost > 0 && !p.finished) this.flame(this.pCar, L.laneP, L.carW);
@@ -467,7 +459,7 @@ export class RaceScene extends Phaser.Scene {
       opp: Math.min(1, o.dist / this.D),
       zone: racing && p.rpm >= z.perfect[0] && p.rpm <= z.perfect[1] ? 'perfect' : racing && p.rpm >= z.good[0] && p.rpm <= z.good[1] ? 'good' : limiter ? 'limiter' : null,
       launched: p.launched,
-      inBand: !p.launched && p.rpm >= launchBand(p.spec)[0] && p.rpm <= launchBand(p.spec)[1],
+      go: !p.launched && this.green,
       gap: p.launched && o.launched ? o.dist - p.dist : null,
       speed: Math.max(p.v, 1),
       nitro: !nitroOn ? null : p.boost <= 0 ? 'ready' : p.boost <= SIM.nitro.chainWindow ? 'chain' : 'burn',
@@ -512,7 +504,7 @@ export class RaceScene extends Phaser.Scene {
     if (!p.launched) {
       if (this.jumpAt == null) {
         this.holding = true;
-        if (!this.green) ui.raceMsg('Revving… keep it in the yellow band, release on GREEN');
+        if (!this.green) ui.raceMsg('Revving… let go the moment it turns GREEN');
       }
       return;
     }

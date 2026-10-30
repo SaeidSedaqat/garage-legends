@@ -457,9 +457,7 @@ svg { display: block; }
 .card.locked-env svg { width: 26px; height: 26px; color: var(--muted); flex: none; }
 
 .t-good { fill: none; stroke: #1f7a46; stroke-width: 7; }
-.t-launch { fill: none; stroke: var(--gold); stroke-width: 4; stroke-linecap: round; }
-.tach.launched .t-launch { display: none; }
-.t-hub.band { fill: var(--gold); stroke: #ffe08a; }
+.t-hub.go { fill: var(--green-hi); stroke: #b8ffd4; }
 .t-hub.good { fill: var(--green); stroke: #8ff0b4; }
 .t-hub.perfect { fill: var(--green-hi); stroke: #fff; }
 .t-hub.limiter { fill: var(--red); stroke: #ffb3aa; }
