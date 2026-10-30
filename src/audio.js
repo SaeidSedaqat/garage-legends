@@ -17,6 +17,9 @@ function ac() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
+    // iPhones mute WebAudio (effects, engine) with the silent switch but not <audio> music;
+    // 'playback' makes the whole game sound like a media app instead
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 1;
@@ -67,7 +70,7 @@ function loadClips() {
     const url = name === 'engine' ? 'assets/audio/engine.wav' : file(name);
     fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {
       buffers[name] = buf;
-      if (name === 'engine' && engine.wanted) engine.start();
+      if (name === 'engine') for (const e of engines) if (e.wanted) e.start();
     }).catch(() => { /* a missing clip just stays silent */ });
   }
 }
@@ -104,50 +107,78 @@ export const sfx = {
 
 // ---------------------------------------------------------------- engine
 
-// A recorded engine loop whose playback speed (and so its pitch) follows the RPM.
-export const engine = {
-  nodes: null,
-  wanted: false,
-  start() {
-    this.wanted = true;
-    const c = ac();
-    if (!c || this.nodes || !buffers.engine) return;
-    const src = c.createBufferSource(), filter = c.createBiquadFilter(), out = c.createGain();
-    src.buffer = buffers.engine;
-    src.loop = true;
-    filter.type = 'lowpass';
-    filter.frequency.value = 1200;
-    out.gain.value = 0;
-    src.connect(filter).connect(out).connect(sfxBus);
-    src.start();
-    out.gain.setTargetAtTime(0.35, c.currentTime, 0.1);
-    this.nodes = { src, filter, out };
-  },
-  set(rpm, load) {
-    if (!this.nodes) return;
-    const t = ctx.currentTime;
-    this.nodes.src.playbackRate.setTargetAtTime(Math.min(2.6, Math.max(0.5, 0.45 + rpm / 4200)), t, 0.03);
-    this.nodes.filter.frequency.setTargetAtTime(700 + load * 3000, t, 0.05);
-    this.nodes.out.gain.setTargetAtTime(0.2 + load * 0.25, t, 0.05);
-  },
-  pause(on) {
-    if (this.nodes) this.nodes.out.gain.setTargetAtTime(on ? 0 : 0.35, ctx.currentTime, 0.05);
-  },
-  stop() {
-    this.wanted = false;
-    if (!this.nodes) return;
-    const { src, out } = this.nodes;
-    this.nodes = null;
-    out.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
-    setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } out.disconnect(); }, 400);
-  },
-};
+// A recorded engine loop whose playback speed (and so its pitch) follows the RPM. The player's
+// car and the rival each get one; `level` scales how loud it is.
+const engineRate = rpm => Math.min(2.6, Math.max(0.5, 0.45 + rpm / 4200));
+function makeEngine(level) {
+  return {
+    nodes: null,
+    wanted: false,
+    start() {
+      this.wanted = true;
+      const c = ac();
+      if (!c || this.nodes || !buffers.engine) return;
+      const src = c.createBufferSource(), filter = c.createBiquadFilter(), out = c.createGain();
+      src.buffer = buffers.engine;
+      src.loop = true;
+      // the rival's loop starts at another point, so the two engines don't phase together
+      filter.type = 'lowpass';
+      filter.frequency.value = 1200;
+      out.gain.value = 0;
+      src.connect(filter).connect(out).connect(sfxBus);
+      src.start(0, level < 1 ? buffers.engine.duration / 2 : 0);
+      out.gain.setTargetAtTime(0.35 * level, c.currentTime, 0.1);
+      this.nodes = { src, filter, out };
+    },
+    set(rpm, load) {
+      if (!this.nodes) return;
+      const t = ctx.currentTime;
+      this.nodes.src.playbackRate.setTargetAtTime(engineRate(rpm), t, 0.03);
+      this.nodes.filter.frequency.setTargetAtTime(700 + load * 3000, t, 0.05);
+      this.nodes.out.gain.setTargetAtTime((0.2 + load * 0.25) * level, t, 0.05);
+    },
+    pause(on) {
+      if (this.nodes) this.nodes.out.gain.setTargetAtTime(on ? 0 : 0.35 * level, ctx.currentTime, 0.05);
+    },
+    stop() {
+      this.wanted = false;
+      if (!this.nodes) return;
+      const { src, out } = this.nodes;
+      this.nodes = null;
+      out.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+      setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } out.disconnect(); }, 400);
+    },
+  };
+}
+export const engine = makeEngine(1);
+export const rivalEngine = makeEngine(0.55);
+const engines = [engine, rivalEngine];
+
+// A short rev in the garage: the engine loop pitched up and back down.
+export function revBlip() {
+  const c = ac();
+  if (!c || !buffers.engine) return;
+  const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
+  src.buffer = buffers.engine;
+  src.loop = true;
+  src.playbackRate.setValueAtTime(0.6, t);
+  src.playbackRate.linearRampToValueAtTime(1.9, t + 0.35);
+  src.playbackRate.linearRampToValueAtTime(0.65, t + 1.1);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.4, t + 0.08);
+  g.gain.setTargetAtTime(0, t + 0.8, 0.15);
+  src.connect(g).connect(sfxBus);
+  src.start(t);
+  src.stop(t + 1.6);
+}
 
 // ---------------------------------------------------------------- music
 
 // 'garage' alternates between two calm tracks; 'race' is the upbeat one. Each streams from an
 // <audio> element routed through the music channel, and crossfades in.
 const TRACKS = { garage: ['music-garage1', 'music-garage2'], race: ['music-race'] };
+// per-track level, so the quieter garage recordings sit near the race track
+const TRACK_GAIN = { 'music-garage1': 1.8, 'music-garage2': 1.4, 'music-race': 1 };
 export const music = {
   el: null, mood: null, nextGarage: Math.floor(Math.random() * 2),
   play(mood) {
@@ -166,7 +197,7 @@ export const music = {
     const src = ctx.createMediaElementSource(el), g = ctx.createGain();
     g.gain.value = 0;
     src.connect(g).connect(musicBus);
-    g.gain.setTargetAtTime(1, ctx.currentTime, 0.6);
+    g.gain.setTargetAtTime(TRACK_GAIN[name] ?? 1, ctx.currentTime, 0.6);
     // the garage playlist moves on to the other track when one ends
     el.addEventListener('ended', () => { if (this.el === el) this.start(); });
     el.play().catch(() => {});

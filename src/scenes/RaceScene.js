@@ -6,7 +6,7 @@ import {
   nitro, nitroReady,
 } from '../physics.js';
 import { CarView, MOCKUP, PROPS, cover, addTex, drawGround, drawDashes, drawChecker, drawMarks } from '../art.js';
-import { sfx, engine, music } from '../audio.js';
+import { sfx, engine, music, rivalEngine } from '../audio.js';
 import { platform } from '../platform.js';
 import * as ui from '../ui.js';
 
@@ -87,9 +87,11 @@ export class RaceScene extends Phaser.Scene {
       this.scale.off('resize', this.build, this);
       document.removeEventListener('visibilitychange', onHide);
       engine.stop();
+      rivalEngine.stop();
       ui.coachOff();
     });
     engine.start();
+    rivalEngine.start();
     music.play('race');
     platform.gameplayStart();
   }
@@ -466,6 +468,9 @@ export class RaceScene extends Phaser.Scene {
       nitro: !nitroOn ? null : p.boost <= 0 ? 'ready' : p.boost <= SIM.nitro.chainWindow ? 'chain' : 'burn',
     });
     engine.set(p.rpm * carDef(state.car).redlineRpm, !p.launched ? 0.45 : p.shifting > 0 || p.finished ? 0.15 : 1);
+    // the rival's engine fades as it drops back or pulls away
+    const near = Math.max(0.25, 1 - Math.abs(o.dist - p.dist) / 80);
+    rivalEngine.set(o.rpm * carDef(OPPONENTS[this.event.opp].carId).redlineRpm, (!o.launched ? 0.35 : o.shifting > 0 || o.finished ? 0.15 : 1) * near);
   }
 
   // Nitro: a short blue-white flame from the exhaust, built from quick additive sparks.
@@ -568,6 +573,7 @@ export class RaceScene extends Phaser.Scene {
     this.paused = on;
     this.holding = false;
     engine.pause(on);
+    rivalEngine.pause(on);
     if (on) {
       ui.showPause({
         resume: () => this.setPaused(false),
@@ -592,6 +598,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.phase === 'done') return;
     this.phase = 'done';
     engine.stop();
+    rivalEngine.stop();
     platform.gameplayStop();
     const { p, o, event } = this;
     const won = p.finishTime <= o.finishTime + 0.001;

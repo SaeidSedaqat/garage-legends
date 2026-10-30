@@ -3,7 +3,7 @@ import { CarView, GARAGE, SCENES, cover } from '../art.js';
 import { WRENCH } from '../data.js';
 import { state, carLock, clickValue, grabWrench, tap } from '../state.js';
 import { bus } from '../events.js';
-import { music, sfx } from '../audio.js';
+import { music, revBlip, sfx } from '../audio.js';
 import * as ui from '../ui.js';
 
 export class GarageScene extends Phaser.Scene {
@@ -20,7 +20,7 @@ export class GarageScene extends Phaser.Scene {
     const offs = [
       bus.on('focus', () => this.placeCar(true)),
       bus.on('change', what => {
-        if (what === 'car') this.showCar();
+        if (what === 'car') { this.showCar(); revBlip(); } // a new car revs as it rolls in
       }),
       bus.on('upgraded', u => this.installFx(u)),
       bus.on('view', () => this.showCar()),
@@ -163,6 +163,7 @@ export class GarageScene extends Phaser.Scene {
   // A bought upgrade: a wrench spins on the car, sparks fly and the gain floats up.
   installFx({ name, lvl, gain }) {
     if (!this.car) return;
+    revBlip();
     const c = this.car.c, w = this.car.w, h = (this.car.m.h * w) / this.car.m.w;
     const x = c.x - w / 2, y = c.y - h * 0.55;
     this.popup(x, y - h * 0.2, `${name} Lv ${lvl}${gain > 0 ? `  +${gain} PR` : ''}`, false);
