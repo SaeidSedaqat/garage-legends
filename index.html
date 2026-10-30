@@ -31,13 +31,18 @@
 
         <div class="tap-hint" id="tap-hint">Tap your car to earn cash!</div>
 
-        <!-- right-hand panel (bottom on phones held upright): upgrades, cars and races -->
+        <!-- the garage view: flip through cars, buy the one on show, go racing -->
+        <button class="car-arrow prev panel" id="car-prev" aria-label="Previous car"></button>
+        <button class="car-arrow next panel" id="car-next" aria-label="Next car"></button>
+        <div class="car-buy panel" id="car-buy" hidden></div>
+        <button class="race-btn" id="btn-race"></button>
+
+        <!-- right-hand panel (bottom on phones held upright): upgrades, or the race list -->
         <section class="dock" id="dock">
-          <nav class="dock-tabs" id="nav">
-            <button data-panel="upgrades" id="nav-upgrades"></button>
-            <button data-panel="cars" id="nav-cars"></button>
-            <button data-panel="races" id="nav-races" class="primary"></button>
-          </nav>
+          <header class="dock-bar">
+            <h2 id="dock-title">Upgrades</h2>
+            <button class="btn" id="dock-back" hidden>Back</button>
+          </header>
           <div class="tabs" id="sheet-tabs"></div>
           <div class="sheet-body" id="sheet-body"></div>
         </section>

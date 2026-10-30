@@ -1,7 +1,7 @@
 import { DPR, FONT } from '../config.js';
 import { CarView, GARAGE, DECOR, addTex, cover, drawLift, drawLights, drawNeon, drawPosters, drawShelf } from '../art.js';
 import { MILESTONES, WRENCH } from '../data.js';
-import { state, clickValue, grabWrench, tap, totalStars } from '../state.js';
+import { state, carLock, clickValue, grabWrench, tap, totalStars } from '../state.js';
 import { bus } from '../events.js';
 import { sfx } from '../audio.js';
 import * as ui from '../ui.js';
@@ -21,6 +21,7 @@ export class GarageScene extends Phaser.Scene {
         if (what === 'race') { this.buildDecor(); this.placeCar(false); }
       }),
       bus.on('upgraded', u => this.installFx(u)),
+      bus.on('view', () => this.makeCar()),
     ];
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.build, this);
@@ -90,7 +91,10 @@ export class GarageScene extends Phaser.Scene {
 
   makeCar() {
     this.car?.destroy();
-    this.car = new CarView(this, `garage-${state.car}`);
+    const id = ui.shownCar();
+    this.car = new CarView(this, `garage-${id}`);
+    // a car still locked behind an event shows as a dim preview
+    if (carLock(id)) this.car.c.setAlpha(0.45);
     this.placeCar(false);
   }
 
@@ -126,6 +130,7 @@ export class GarageScene extends Phaser.Scene {
     if (this.wrench && Phaser.Math.Distance.Between(x, y, this.wrench.x, this.wrench.y) < this.wrench.r * 1.4) return this.grabWrench();
     const c = this.car.c, w = this.car.w, h = (this.car.m.h * w) / this.car.m.w, pad = 12 * DPR;
     if (x < c.x - w - pad || x > c.x + pad || y < c.y - h - pad || y > c.y + pad) return;
+    if (ui.shownCar() !== state.car) return; // a car on show for sale earns nothing
     this.tap(x, y);
   }
 

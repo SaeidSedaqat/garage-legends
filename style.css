@@ -331,7 +331,6 @@ svg { display: block; }
   .race-sub { display: none; }
   .msg { padding: 6px; font-size: 12.5px; }
   .progress { top: calc(66px + var(--st)); }
-  .dock-tabs button { height: 44px; }
   .tap-hint { bottom: calc(86px + var(--sb)); }
 }
 
@@ -357,7 +356,6 @@ svg { display: block; }
 .goal-label { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
 .stars-inline { color: var(--gold); }
 
-.dock-tabs button { position: relative; }
 .badge { display: none; position: absolute; top: 6px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--panel); }
 .has-badge .badge { display: block; }
 
@@ -624,8 +622,8 @@ body.reduced .coach-target { box-shadow: 0 0 0 3px var(--gold); }
   font-weight: 900; font-size: 13px; white-space: nowrap; display: flex; align-items: center; gap: 4px;
 }
 .ub-cost svg { width: 12px; height: 12px; flex: none; }
-.upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep) { border-color: rgba(60, 207, 120, 0.7); }
-.upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep) .ub-icon { background: rgba(60, 207, 120, 0.2); color: var(--green-hi); }
+.upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep):not(.preview) { border-color: rgba(60, 207, 120, 0.7); }
+.upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep):not(.preview) .ub-icon { background: rgba(60, 207, 120, 0.2); color: var(--green-hi); }
 .upg-btn.poor .ub-cost { background: #3a4a60; color: #a9b8c9; }
 .upg-btn.locked { opacity: 0.7; }
 .upg-btn.locked .ub-cost { background: none; color: var(--muted); font-size: 10.5px; padding: 0; white-space: normal; max-width: 92px; text-align: right; line-height: 1.15; }
@@ -694,31 +692,10 @@ body.reduced .upg-btn.flash { animation: none; }
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
   padding: var(--st) var(--sr) var(--sb) 0;
 }
-.dock-tabs { display: flex; gap: 6px; padding: 12px 12px 8px; }
-.dock-tabs button {
-  flex: 1;
-  height: 58px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-weight: 800;
-  font-size: 13px;
-  background: var(--card);
-  color: var(--muted);
-  transition: transform 0.1s;
-}
-.dock-tabs button svg { width: 22px; height: 22px; }
-.dock-tabs button.active { background: var(--card-2); color: var(--text); outline: 2px solid var(--gold); outline-offset: -2px; }
-.dock-tabs button.primary { background: linear-gradient(var(--green-hi), var(--green)); color: #fff; box-shadow: 0 3px 0 #1d6e3e; }
-.dock-tabs button.primary.active { outline-color: #fff; }
-.dock-tabs button:active { transform: translateY(2px); }
 .dock .sheet-body { padding: 4px 12px 14px; overflow-x: hidden; }
 .dock-head { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 4px 2px -2px; }
 .dock-head b { color: var(--text); }
-.upg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.upg-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .upg-grid > * { min-width: 0; }
 .ub-name { min-width: 0; }
 .upg-btn { background: var(--card); box-shadow: none; padding: 8px 9px; gap: 3px 8px; grid-template-columns: 32px 1fr auto; }
@@ -742,16 +719,90 @@ body.reduced .upg-btn.flash { animation: none; }
     box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
     padding: 0 var(--sr) var(--sb) var(--sl);
   }
-  .dock-tabs { padding: 10px 10px 6px; }
-  .dock-tabs button { height: 48px; flex-direction: row; gap: 6px; font-size: 14px; }
-  .dock-tabs button svg { width: 20px; height: 20px; }
-  .tap-hint { bottom: calc(var(--dock-h) + 12px); }
 }
 /* short landscape (phones on their side): a narrower dock, compact tabs */
 @media (orientation: landscape) and (max-height: 520px) {
   :root { --dock-w: clamp(260px, 36vw, 360px); }
-  .dock-tabs { padding: 8px 8px 6px; }
-  .dock-tabs button { height: 40px; flex-direction: row; gap: 5px; font-size: 12px; }
-  .dock-tabs button svg { width: 17px; height: 17px; }
   .upg-grid { gap: 6px; }
+}
+
+/* the dock's title bar: "Upgrades", or "Race" with a way back */
+.dock-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 14px 6px; min-height: 58px; }
+.dock-bar h2 { margin: 0; font-size: 20px; }
+.dock-bar .btn { display: flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px 0 6px; font-size: 13px; }
+.dock-bar .btn svg { width: 18px; height: 18px; }
+
+/* upgrade rows: what the part does, what the next level adds, the price */
+.upg-btn, .upg-btn.rep {
+  grid-template-columns: 34px 1fr auto;
+  grid-template-areas: "icon name cost" "icon desc desc" "icon pips gain";
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 11px;
+}
+.upg-btn.locked, .upg-btn.maxed { grid-template-areas: "icon name cost" "icon desc desc" "icon pips pips"; }
+.upg-btn.rep { grid-template-areas: "icon name cost" "icon desc desc" "icon gain gain"; }
+.upg-btn.preview { grid-template-areas: "icon name" "icon desc"; grid-template-columns: 34px 1fr; cursor: default; }
+.ub-icon { align-self: start; }
+.ub-name small { color: var(--muted); font-weight: 700; font-size: 11.5px; margin-left: 4px; }
+.ub-desc { grid-area: desc; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.ub-desc em { display: block; font-style: normal; font-weight: 700; font-size: 11.5px; color: #8fd0ff; margin-top: 2px; }
+.ub-gain { justify-self: end; }
+.upg-btn.rep .ub-gain { justify-self: start; color: var(--gold); }
+
+/* garage view controls: car arrows, the buy card and the race button */
+.car-arrow {
+  position: absolute;
+  top: calc((100% - var(--dock-h)) / 2 + 30px);
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--text);
+}
+.car-arrow svg { width: 28px; height: 28px; }
+.car-arrow.prev { left: calc(14px + var(--sl)); }
+.car-arrow.next { right: calc(var(--dock-w) + 14px); }
+.car-arrow .badge { top: 2px; right: 2px; }
+.car-arrow:active { transform: scale(0.94); }
+.race-btn {
+  position: absolute;
+  left: calc(16px + var(--sl));
+  bottom: calc(var(--dock-h) + 16px + var(--sb));
+  height: 64px; min-width: 150px; padding: 0 24px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 22px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(var(--green-hi), var(--green));
+  box-shadow: 0 5px 0 #1d6e3e, var(--shadow);
+}
+.race-btn svg { width: 26px; height: 26px; }
+.race-btn.active { outline: 3px solid var(--gold); outline-offset: 2px; }
+.race-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1d6e3e, var(--shadow); }
+.car-buy {
+  position: absolute;
+  left: calc((100% - var(--dock-w)) / 2);
+  bottom: calc(var(--dock-h) + 96px + var(--sb));
+  transform: translateX(-50%);
+  width: min(320px, calc(100% - var(--dock-w) - 32px));
+  padding: 12px 14px;
+  display: grid; gap: 4px; text-align: center;
+}
+.cb-name { font-size: 18px; font-weight: 900; }
+.cb-name .tier { font-size: 11px; color: var(--muted); font-weight: 800; margin-left: 4px; }
+.cb-line { font-size: 12.5px; color: var(--muted); }
+.cb-line b { color: var(--text); }
+.cb-line.quirk { color: #ffcf8a; }
+.car-buy .btn { margin-top: 6px; height: 44px; font-size: 16px; }
+.car-buy .locked-note { justify-content: center; margin-top: 6px; }
+.tap-hint { bottom: calc(var(--dock-h) + 96px + var(--sb)); }
+@media (orientation: landscape) and (max-height: 520px) {
+  .race-btn { height: 50px; min-width: 120px; font-size: 18px; }
+  .car-buy { bottom: calc(76px + var(--sb)); padding: 8px 10px; }
+  .car-arrow { width: 44px; height: 44px; }
+}
+@media (orientation: portrait) {
+  .race-btn { height: 50px; min-width: 116px; padding: 0 16px; font-size: 18px; bottom: calc(var(--dock-h) + 12px); }
+  .race-btn svg { width: 21px; height: 21px; }
+  .car-buy { bottom: calc(var(--dock-h) + 72px); padding: 9px 12px; }
+  .car-arrow { width: 44px; height: 44px; }
 }

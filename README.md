@@ -14,13 +14,19 @@ Close the black window to stop it.
 
 - **Garage:** tap your car to earn cash (4% chance of a ×5 critical). A Golden Wrench appears every
   1–2 minutes: tap it for 30× a tap.
-- **Upgrades** sit beside the car in the garage: tap one to buy its next level.
-  - Left: the car's own four parts. Every car has its own set, e.g. the Bulldog has a Big-Block
-    V8, Supercharger, Drag Slicks and Gearbox, and the Volta X has Twin Motors and Power Cells.
+- **Screen layout:** the garage fills the left 70%, the panel the right 30% (on phones held
+  upright the panel sits along the bottom).
+  - **‹ ›** beside the car flip through every car. Owned ones are driven straight away; others
+    go on show with their stats and a Buy button (arrow keys work too).
+  - **RACE** (bottom left, or R) swaps the panel to the race list; "Upgrades" takes it back.
+- **Upgrades** (the panel): tap one to buy its next level. Each row says what the part does and
+  how much one level adds.
+  - The car's own four parts. Every car has its own set, e.g. the Bulldog has a Big-Block V8,
+    Supercharger, Drag Slicks and Gearbox, and the Volta X has Twin Motors and Power Cells.
     Each part has 4 levels; together they add about 30% PR. Gearbox parts widen the shift zones,
     tires, slicks and AWD soften a slow launch, and nitrous, battery and hybrid parts make nitro
     stronger.
-  - Right: Tap Power and Pit Crew (5 levels each; the crew unlocks after winning Local Rival),
+  - Garage: Tap Power and Pit Crew (5 levels each; the crew unlocks after winning Local Rival),
     plus Reputation (stars and garage decor).
 - **Race:** press and hold the button (or Space) when the amber lights come on, then let go the
   instant the light turns GREEN: the launch is scored on reaction time (under 0.2 s is perfect).

@@ -6,7 +6,7 @@ import {
   envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave, achievementProgress,
 } from './state.js';
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
+  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, GARAGE_LEVELS, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
   ACHIEVEMENTS,
 } from './data.js';
 import { pr, zones } from './physics.js';
@@ -36,6 +36,8 @@ const ICONS = {
   crew: svg('<rect x="6" y="8" width="12" height="10" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M4 13H2M22 13h-2"/>'),
   car: svg('<path d="M3 16v-3l2-5h14l2 5v3"/><path d="M3 16h18v2h-3M6 18H3"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/>'),
   flag: svg('<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>'),
+  prev: svg('<path d="m15 5-7 7 7 7"/>'),
+  next: svg('<path d="m9 5 7 7-7 7"/>'),
   wrench: svg('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>'),
   soundOn: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>'),
   soundOff: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="m17 9 5 6M22 9l-5 6"/>'),
@@ -59,22 +61,25 @@ const ICONS = {
 };
 
 let game = null;
-let panel = 'upgrades'; // the dock's open tab: upgrades, cars or races
+let panel = 'upgrades'; // what the dock shows: the car's upgrades, or the race list
+let viewing = null;     // a car not owned yet, on show in the garage; null shows the one you drive
 let envTab = 'countryside';
 let hud = null;
 let taps = 0;
 
 export function init(g) {
   game = g;
-  $('nav-upgrades').innerHTML = `${ICONS.wrench}<span>Upgrades</span><i class="badge"></i>`;
-  $('nav-cars').innerHTML = `${ICONS.car}<span>Cars</span><i class="badge"></i>`;
-  $('nav-races').innerHTML = `${ICONS.flag}<span>Race</span>`;
+  $('car-prev').innerHTML = ICONS.prev;
+  $('car-next').innerHTML = `${ICONS.next}<i class="badge"></i>`;
+  $('btn-race').innerHTML = `${ICONS.flag}<span>Race</span>`;
+  $('dock-back').innerHTML = `${ICONS.prev}<span>Upgrades</span>`;
   $('btn-pause').innerHTML = ICONS.pause;
 
-  document.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => {
-    sfx.click();
-    openPanel(b.dataset.panel);
-  }));
+  $('car-prev').addEventListener('click', () => { sfx.click(); stepCar(-1); });
+  $('car-next').addEventListener('click', () => { sfx.click(); stepCar(1); });
+  $('btn-race').addEventListener('click', () => { sfx.click(); openPanel(panel === 'races' ? 'upgrades' : 'races'); });
+  $('dock-back').addEventListener('click', () => { sfx.click(); openPanel('upgrades'); });
+  $('car-buy').addEventListener('click', onSheetClick);
   $('sheet-body').addEventListener('click', onSheetClick);
   $('sheet-tabs').addEventListener('click', e => {
     const b = e.target.closest('[data-tab]');
@@ -88,7 +93,9 @@ export function init(g) {
     sfx.click();
     if (g.envTab) envTab = g.envTab;
     if (g.panel) openPanel(g.panel, true);
+    if (g.car) showCar(g.car);
     if (g.upgrade) {
+      showCar(state.car);
       openPanel('upgrades');
       const b = document.querySelector(`.upg-btn[data-id="${g.upgrade}"]`);
       b?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -103,8 +110,8 @@ export function init(g) {
   applyMotion();
   bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
 
-  // keyboard: Enter presses a dialog's main button, Escape closes it; in the garage 1/2/3
-  // switch the panel to Race/Upgrades/Cars (GDD §10.10)
+  // keyboard: Enter presses a dialog's main button, Escape closes it; in the garage the arrow
+  // keys flip through cars and R opens the race list (GDD §10.10)
   window.addEventListener('keydown', e => {
     if (e.code === 'Enter' && !$('modal').hidden && !e.repeat) {
       $('modal-card').querySelector('.actions .btn.go')?.click();
@@ -113,12 +120,15 @@ export function init(g) {
     if ($('garage-ui').hidden || e.repeat) return;
     if (e.code === 'Escape' && !$('modal').hidden) { hideModal(); coachUpdate(); }
     if (!$('modal').hidden) return;
-    const map = { Digit1: 'races', Digit2: 'upgrades', Digit3: 'cars' };
-    if (map[e.code]) openPanel(map[e.code]);
+    if (e.code === 'ArrowLeft') stepCar(-1);
+    if (e.code === 'ArrowRight') stepCar(1);
+    if (e.code === 'KeyR') openPanel(panel === 'races' ? 'upgrades' : 'races');
   });
 
   bus.on('change', what => {
+    if (what === 'car') viewing = null;
     renderWallet();
+    renderCarBuy();
     if (what === 'money') refreshAfford();
     else renderPanel();
   });
@@ -128,7 +138,48 @@ export function init(g) {
   window.addEventListener('resize', () => { bus.emit('focus'); coachUpdate(); });
   $('sheet-body').addEventListener('scroll', coachUpdate, { passive: true });
   openPanel('upgrades');
+  renderCarBuy();
   renderWallet();
+}
+
+// ---------------------------------------------------------------- car browsing
+
+// The car on show in the garage: one you don't own yet while browsing, else the one you drive.
+export const shownCar = () => viewing || state.car;
+
+// The ‹ › arrows walk through every car. Owned ones are driven straight away; others go on
+// show with their price, so they can be looked over and bought right there.
+function stepCar(dir) {
+  const i = CARS.findIndex(c => c.id === shownCar());
+  showCar(CARS[(i + dir + CARS.length) % CARS.length].id);
+}
+
+function showCar(id) {
+  if (state.owned.includes(id)) {
+    const was = viewing;
+    viewing = null;
+    if (state.car !== id) selectCar(id);
+    else if (was) { bus.emit('view'); renderCarBuy(); renderPanel(); }
+    return;
+  }
+  viewing = id;
+  bus.emit('view');
+  renderCarBuy();
+  renderPanel();
+}
+
+// The card under a car you don't own yet: what it is, its parts and its price.
+function renderCarBuy() {
+  const box = $('car-buy');
+  box.hidden = !viewing;
+  if (!viewing) return;
+  const c = carDef(viewing), lock = carLock(c.id);
+  box.innerHTML = `<div class="cb-name">${c.name} <span class="tier">Tier ${c.tier}</span></div>
+    <div class="cb-line">PR <b>${stockPR(c.id)}</b> · ${c.stats.gears} gears · ${windowLabel(c.stats.shiftWindow)} shift window</div>
+    <div class="cb-line quirk">${c.niche}</div>
+    ${lock ? `<div class="locked-note">${ICONS.lock}<span>${lock} · ${fmt(c.price)}</span></div>`
+      : `<button class="btn buy" data-action="car" data-id="${c.id}" data-cost="${c.price}">Buy · ${fmt(c.price)}</button>`}`;
+  refreshAfford();
 }
 
 // A short pulse to show the player where something is.
@@ -162,10 +213,7 @@ function renderWallet() {
   if ($('car-chip').innerHTML !== chip) $('car-chip').innerHTML = chip;
   const g = goal(), gc = `<span class="goal-label">Next</span>${g.text}`;
   if (gc !== lastChip) { $('goal-chip').innerHTML = gc; lastChip = gc; }
-  const affordable = cost => cost != null && cost <= state.cash;
-  $('nav-upgrades').classList.toggle('has-badge', carDef(state.car).parts.some(k => !upgradeLock(k) && affordable(upgradeCost(k)))
-    || affordable(garageCost('click')) || (autoUnlocked() && affordable(garageCost('auto'))));
-  $('nav-cars').classList.toggle('has-badge', CARS.some(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash));
+  $('car-next').classList.toggle('has-badge', CARS.some(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash));
   $('btn-trophies').classList.toggle('has-badge', Object.keys(state.achievements).length > (state.achSeen || 0));
   coachUpdate();
 }
@@ -175,14 +223,14 @@ function goal() {
   if (!state.tutorial.upgraded && state.cash >= upgradeCost('engine', 'kaze')) return { text: 'Buy your first upgrade', upgrade: 'engine' };
   const fresh = EVENTS.find(e => eventUnlocked(e) && !state.events[e.id]?.won);
   const car = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash);
-  if (car) return { text: `Buy the ${car.name}`, panel: 'cars' };
+  if (car) return { text: `Buy the ${car.name}`, car: car.id };
   // an affordable part when the car is short of the next race, or when it's small change
   const def = carDef(state.car), underpowered = fresh && carPR(state.car) < fresh.rec;
   const part = def.parts.find(k => !upgradeLock(k) && upgradeCost(k) != null && upgradeCost(k) <= state.cash * (underpowered ? 1 : 0.25));
   if (part) return { text: `Upgrade: ${partName(def, part)}`, upgrade: part };
   if (fresh) return { text: `Race: ${fresh.name}`, panel: 'races', envTab: fresh.env };
   const next = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id));
-  if (next) return { text: `Save for the ${next.name} (${fmt(next.price)})`, panel: 'cars' };
+  if (next) return { text: `Save for the ${next.name} (${fmt(next.price)})`, car: next.id };
   if (legendUnlocked()) return { text: `Legend Series: Round ${state.legend.round}`, panel: 'races', envTab: 'legend' };
   const m = MILESTONES.find(x => x.stars > totalStars());
   return m ? { text: `Earn ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
@@ -207,15 +255,17 @@ function openPanel(name, keepTab = false) {
   panel = name;
   renderPanel();
   if (changedTab) $('sheet-body').scrollTop = 0;
-  document.querySelectorAll('[data-panel]').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+  $('btn-race').classList.toggle('active', name === 'races');
 }
 
 const tabsHtml = (list, on) => list.map(([id, label, locked]) => `<button class="tab ${id === on ? 'on' : ''} ${locked ? 'locked' : ''}" data-tab="${id}">${locked ? ICONS.lock : ''}${label}</button>`).join('');
 
 function renderPanel() {
+  $('dock-title').textContent = panel === 'races' ? 'Race' : 'Upgrades';
+  $('dock-back').hidden = panel !== 'races';
   $('sheet-tabs').innerHTML = panel === 'races' ? tabsHtml([...ENVS.map(v => [v.id, v.short, !envUnlocked(v)]), ['legend', 'Legend', !legendUnlocked()]], envTab) : '';
   const scroll = $('sheet-body').scrollTop;
-  $('sheet-body').innerHTML = panel === 'upgrades' ? renderUpgrades() : panel === 'cars' ? renderCars() : renderRaces();
+  $('sheet-body').innerHTML = panel === 'races' ? renderRaces() : renderUpgrades();
   $('sheet-body').scrollTop = scroll;
   refreshAfford();
   coachUpdate();
@@ -225,41 +275,65 @@ function renderPanel() {
 
 const pips = (lvl, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`;
 
-// One upgrade button: icon, name, level pips, what the next level adds, and its price.
-function upgButton({ action, id, icon, name, lvl, max, gain, cost, lock, desc }) {
-  const kind = lock ? 'locked' : cost == null ? 'maxed' : '';
-  const price = lock ? `${ICONS.lock}<span>${lock}</span>` : cost == null ? 'MAX' : fmt(cost);
-  return `<button class="upg-btn ${kind}" data-action="${action}" data-id="${id}"${kind ? '' : ` data-cost="${cost}"`}${lock ? ` data-lock="${lock}"` : ''} title="${desc}">
+// What one level of a part does, in numbers: "+7.5% acceleration · +3.8% top speed".
+const FX_TEXT = { accel: 'acceleration', topSpeed: 'top speed', launch: 'launch' };
+function partEffect(id) {
+  const fx = PARTS[id].fx, pct = v => `${+(v * 100).toFixed(1)}%`;
+  return [
+    ...Object.entries(FX_TEXT).filter(([k]) => fx[k]).map(([k, label]) => `+${pct(PART_STEP * fx[k])} ${label}`),
+    ...(fx.shift ? [`+${pct(0.04 * fx.shift * 10 / PART_LEVELS)} wider shift zones`] : []),
+    ...(fx.grip ? ['softer slow starts'] : []),
+    ...(fx.nitro ? [`+${pct(NITRO_STEP * fx.nitro)} nitro power`] : []),
+  ].join(' · ') + ' per level';
+}
+
+// One upgrade: icon, name, what it does, level pips, what the next level adds, and its price.
+function upgButton({ action, id, icon, name, desc, effect, lvl, max, gain, cost, lock, tag }) {
+  const kind = tag ? 'rep' : lock ? 'locked' : cost == null ? 'maxed' : '';
+  const price = tag || (lock ? `${ICONS.lock}<span>${lock}</span>` : cost == null ? 'MAX' : fmt(cost));
+  return `<button class="upg-btn ${kind}" data-action="${action}" data-id="${id}"${kind ? '' : ` data-cost="${cost}"`}${lock ? ` data-lock="${lock}"` : ''}>
     <span class="ub-icon">${ICONS[icon]}</span>
-    <span class="ub-name">${name}</span>
-    ${pips(lvl, max)}
-    ${gain && !kind ? `<span class="ub-gain">${gain}</span>` : ''}
+    <span class="ub-name">${name}${lvl != null ? ` <small>Lv ${lvl}/${max}</small>` : ''}</span>
+    <span class="ub-desc">${desc}${effect ? `<em>${effect}</em>` : ''}</span>
+    ${lvl != null ? pips(lvl, max) : ''}
+    ${gain && (!kind || tag) ? `<span class="ub-gain">${gain}</span>` : ''}
     <span class="ub-cost">${price}</span>
   </button>`;
 }
 
-// The Upgrades tab: the current car's own four parts, then the garage (tap power, pit crew,
-// reputation).
+// The car on show's own four parts, then the garage (tap power, pit crew, reputation). A car
+// that isn't owned yet only shows what its parts would do.
 function renderUpgrades() {
-  const car = carDef(state.car), now = pr(tunedSpec());
+  const car = carDef(shownCar());
+  if (viewing) {
+    const parts = car.parts.map(id => `<div class="upg-btn preview">
+      <span class="ub-icon">${ICONS[PARTS[id].icon]}</span><span class="ub-name">${partName(car, id)}</span>
+      <span class="ub-desc">${PARTS[id].desc}<em>${partEffect(id)}</em></span></div>`).join('');
+    return `<div class="dock-head">${car.name}'s parts</div><p class="hint">Buy the ${car.name} to fit these. Each car has its own set.</p><div class="upg-grid">${parts}</div>`;
+  }
+  const now = pr(tunedSpec());
   const parts = car.parts.map(id => {
     const p = PARTS[id], cost = upgradeCost(id), lock = upgradeLock(id);
     const d = cost != null && !lock ? pr(previewSpec(id)) - now : 0;
-    const gain = d > 0 ? `+${d} PR` : p.fx.shift ? 'Wider shifts' : '';
-    return upgButton({ action: 'upgrade', id, icon: p.icon, name: partName(car, id), lvl: upgradeLevel(id), max: PART_LEVELS, gain, cost, lock: lock?.replace('Needs ', ''), desc: p.desc });
+    return upgButton({
+      action: 'upgrade', id, icon: p.icon, name: partName(car, id), desc: p.desc, effect: partEffect(id),
+      lvl: upgradeLevel(id), max: PART_LEVELS, gain: d > 0 ? `+${d} PR` : '', cost, lock: lock?.replace('Needs ', ''),
+    });
   }).join('');
   const cp = state.clickPower, au = state.automation, stars = totalStars(), mult = 1 + STAR_BONUS * stars;
   const garage = upgButton({
     action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, max: GARAGE_LEVELS, cost: garageCost('click'),
-    gain: cp < GARAGE_LEVELS ? `${fmt(Math.round(CLICK_BASE[cp + 1] * mult))} / tap` : '', desc: 'Cash for every tap on your car.',
+    desc: 'More cash for every tap on your car.',
+    gain: cp < GARAGE_LEVELS ? `${fmt(Math.round(CLICK_BASE[cp] * mult))} → ${fmt(Math.round(CLICK_BASE[cp + 1] * mult))} / tap` : '',
   }) + upgButton({
     action: 'garage', id: 'auto', icon: 'crew', name: 'Pit Crew', lvl: au, max: GARAGE_LEVELS, cost: garageCost('auto'),
+    desc: "Taps your car for you, even while you're away (half rate, up to 2 h).",
     lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
-    gain: au < GARAGE_LEVELS ? `${AUTO_CPS[au + 1]} taps / s` : '', desc: "Taps your car for you, even while you're away (half rate, up to 2 h).",
-  }) + `<button class="upg-btn rep" data-action="rep" title="Stars raise tap income and unlock garage decor.">
-    <span class="ub-icon">${ICONS.star}</span><span class="ub-name">Reputation</span>
-    <span class="ub-gain">×${mult.toFixed(2)} taps</span><span class="ub-cost">★ ${stars}</span>
-  </button>`;
+    gain: au < GARAGE_LEVELS ? `${AUTO_CPS[au]} → ${AUTO_CPS[au + 1]} taps / s` : '',
+  }) + upgButton({
+    action: 'rep', id: 'rep', icon: 'star', name: 'Reputation', desc: 'Every race star adds 5% to tap income and unlocks garage decor.',
+    gain: `×${mult.toFixed(2)} tap income`, tag: `★ ${stars}`,
+  });
   return `<div class="dock-head">${car.name} · PR <b>${carPR(state.car)}</b></div><div class="upg-grid">${parts}</div>
     <div class="dock-head">Garage</div><div class="upg-grid">${garage}</div>`;
 }
@@ -278,38 +352,6 @@ function showReputation() {
 
 const windowLabel = w => (w >= 0.8 ? 'Wide' : w >= 0.7 ? 'Normal' : 'Narrow');
 
-function stat(label, value, max) {
-  return `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.min(100, (value / max) * 100)}%"></i></div><b>${Math.round(value)}</b></div>`;
-}
-
-function renderCars() {
-  return CARS.map(c => {
-    const owned = state.owned.includes(c.id), driving = state.car === c.id, lock = carLock(c.id);
-    const s = owned ? tunedSpec(c.id) : c.stats;
-    let btn;
-    if (driving) btn = '<button class="btn" disabled>Driving</button>';
-    else if (owned) btn = `<button class="btn go" data-action="select" data-id="${c.id}">Drive</button>`;
-    else if (lock) btn = `<div class="locked-note wide">${ICONS.lock}<span>${lock} · ${fmt(c.price)}</span></div>`;
-    else btn = `<button class="btn buy" data-action="car" data-id="${c.id}" data-cost="${c.price}">${fmt(c.price)}</button>`;
-    return `<div class="card car ${driving ? 'selected' : ''} ${lock ? 'silhouette' : ''}">
-      <img src="${carPreview(`garage-${c.id}`)}" alt="${c.name}">
-      <div class="info">
-        <div class="name">${c.name} <span class="tier">Tier ${c.tier}</span></div>
-        <div class="pr-line">PR <b>${owned ? carPR(c.id) : stockPR(c.id)}</b> · ${c.stats.gears} gears · ${windowLabel(c.stats.shiftWindow)} shift window</div>
-        <div class="desc quirk">${c.niche}</div>
-        <div class="parts-line">${c.parts.map(id => `<span>${ICONS[PARTS[id].icon]}${partName(c, id)}</span>`).join('')}</div>
-      </div>
-      <div class="stats">
-        ${stat('Launch', s.launch, 130)}
-        ${stat('Accel', s.accel, 130)}
-        ${stat('Top speed', s.topSpeed, 130)}
-      </div>
-      ${btn}
-    </div>`;
-  }).join('');
-}
-
-// ✓ at or above, ⚠ within 10% below, ✕ more than 10% below (GDD §7.3)
 function prCheck(rec) {
   const mine = carPR(state.car);
   if (mine >= rec) return `<span class="prc ok">${ICONS.check}PR ${rec}</span>`;
@@ -367,7 +409,7 @@ function renderRaces() {
 }
 
 function refreshAfford() {
-  document.querySelectorAll('#sheet-body [data-cost], .upg-btn[data-cost]').forEach(b => b.classList.toggle('poor', state.cash < +b.dataset.cost));
+  document.querySelectorAll('#sheet-body [data-cost], #car-buy [data-cost]').forEach(b => b.classList.toggle('poor', state.cash < +b.dataset.cost));
 }
 
 function onSheetClick(e) {
@@ -618,10 +660,10 @@ function guideStep() {
   if (!$('modal').hidden) return !t.raced && $('mu-race') ? [$('mu-race'), "Let's race!"] : null;
   if (!t.upgraded) {
     if (state.cash < upgradeCost('engine', 'kaze')) return null; // the tap hint covers this part
-    if (panel !== 'upgrades') return [$('nav-upgrades'), 'You can afford an upgrade!'];
+    if (panel !== 'upgrades') return [$('dock-back'), 'You can afford an upgrade!'];
     return [document.querySelector('.upg-btn[data-id="engine"]'), 'Tap Engine to upgrade your car'];
   }
-  if (panel !== 'races') return [$('nav-races'), 'Time for your first race!'];
+  if (panel !== 'races') return [$('btn-race'), 'Time for your first race!'];
   if (envTab !== 'countryside') return null;
   return [$('sheet-body').querySelector('[data-id="country_1"]'), 'Race The Rusty'];
 }
