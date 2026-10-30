@@ -273,17 +273,17 @@ export const WRENCH = { every: [60, 120], lasts: 8, mult: 30 };
 export const OFFLINE = { rate: 0.5, capS: 2 * 3600 };
 export const STAR_BONUS = 0.05; // click value × (1 + 0.05 × stars)
 
-// Star milestones: cash rewards, or decor that appears in the garage (`key` picks the piece).
+// Star milestones: cash rewards; the last one also gives the "Garage Legend" title.
 export const MILESTONES = [
-  { stars: 3, decor: 'Trophy shelf', key: 'shelf' },
+  { stars: 3, cash: 150 },
   { stars: 6, cash: 500 },
-  { stars: 10, decor: 'Wall posters', key: 'posters' },
+  { stars: 10, cash: 2000 },
   { stars: 15, cash: 10000 },
-  { stars: 20, decor: 'String lights', key: 'lights' },
+  { stars: 20, cash: 25000 },
   { stars: 25, cash: 75000 },
-  { stars: 30, decor: 'Car lift', key: 'lift' },
+  { stars: 30, cash: 150000 },
   { stars: 38, cash: 500000 },
-  { stars: 45, decor: 'Neon LEGEND sign', key: 'neon', title: 'Garage Legend' },
+  { stars: 45, cash: 1000000, title: 'Garage Legend' },
 ];
 
 // ---------------------------------------------------------------- achievements

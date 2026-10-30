@@ -1,7 +1,7 @@
 import { ART, CARS, OPPONENTS } from '../data.js';
 import {
-  DECOR_SHEET, GARAGE, MOCKUP, PORTRAITS, PROPS, SCENES, addTex, drawShadow, drawWrench, ensureCar, queueCar, registerDecor,
-  registerPortraits, registerProps,
+  GARAGE, MOCKUP, PORTRAITS, PROPS, SCENES, addTex, drawShadow, drawWrench, ensureCar, queueCar, registerPortraits,
+  registerProps,
 } from '../art.js';
 import { checkAchievements, collectOffline, save, state } from '../state.js';
 import { platform } from '../platform.js';
@@ -24,7 +24,6 @@ export class BootScene extends Phaser.Scene {
     // the scene of the car you drive is there from the start; the rest load in the garage
     if (SCENES[state.car]) this.load.image(`scene-${state.car}`, SCENES[state.car].file);
     this.load.image(PROPS.key, PROPS.file);
-    this.load.image(DECOR_SHEET.key, DECOR_SHEET.file);
     this.load.image(PORTRAITS.key, PORTRAITS.file);
     for (const file of new Set(carArt().map(([, s]) => s.file))) this.load.image(file, file);
   }
@@ -35,7 +34,6 @@ export class BootScene extends Phaser.Scene {
     addTex(this, 'shadow', drawShadow());
     addTex(this, 'wrench', drawWrench());
     registerProps(this, this.textures.get(PROPS.key).getSourceImage());
-    registerDecor(this.textures.get(DECOR_SHEET.key).getSourceImage());
     registerPortraits(this.textures.get(PORTRAITS.key).getSourceImage());
     this.textures.remove(PROPS.key);
     // cars are cut out when first shown; only the garage car is needed right away

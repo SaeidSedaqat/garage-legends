@@ -1,7 +1,7 @@
 import { DPR, FONT } from '../config.js';
-import { CarView, GARAGE, DECOR, SCENES, addTex, cover, drawLift, drawLights, drawNeon, drawPosters, drawShelf } from '../art.js';
-import { MILESTONES, WRENCH } from '../data.js';
-import { state, carLock, clickValue, grabWrench, tap, totalStars } from '../state.js';
+import { CarView, GARAGE, SCENES, cover } from '../art.js';
+import { WRENCH } from '../data.js';
+import { state, carLock, clickValue, grabWrench, tap } from '../state.js';
 import { bus } from '../events.js';
 import { sfx } from '../audio.js';
 import * as ui from '../ui.js';
@@ -20,7 +20,6 @@ export class GarageScene extends Phaser.Scene {
       bus.on('focus', () => this.placeCar(true)),
       bus.on('change', what => {
         if (what === 'car') this.showCar();
-        if (what === 'race') { this.buildDecor(); this.placeCar(false); }
       }),
       bus.on('upgraded', u => this.installFx(u)),
       bus.on('view', () => this.showCar()),
@@ -78,48 +77,9 @@ export class GarageScene extends Phaser.Scene {
         shadow: { offsetX: 0, offsetY: 0, color: '#f1b434', blur: b.h * s * 0.08, fill: true },
       }).setOrigin(0.5).setDepth(-9);
     }
-    this.bgLayout = { W, s, fw, top, ox: sc.crop?.[0] || 0, oy: sc.crop?.[1] || 0 };
-    this.buildDecor();
     this.makeCar();
   }
 
-  // Decor earned at star milestones (GDD §7.5), placed in background-image coordinates. Only
-  // the home garage and the hometown scene have it; the car lift goes wherever there's decor.
-  buildDecor() {
-    this.decor?.forEach(o => { this.tweens.killTweensOf(o); o.destroy(); });
-    this.decor = [];
-    this.lift = null;
-    const D = this.sc.decor;
-    if (!D) return;
-    const { W, s, fw, top, ox, oy } = this.bgLayout, stars = totalStars();
-    const has = key => stars >= MILESTONES.find(m => m.key === key).stars;
-    // a piece's box: its design size from DECOR, placed (and scaled by `k`) for this scene
-    const box = key => ({ ...DECOR[key], ...D[key] });
-    const put = (key, canvas, b) => {
-      addTex(this, key, canvas);
-      const im = this.add.image(W / 2 + (b.x - ox - fw / 2) * s, top + (b.y - oy) * s, key).setOrigin(0).setDepth(-8);
-      this.decor.push(im);
-      return im;
-    };
-    const k = key => s * (box(key).k || 1);
-    if (has('posters')) put('decor-posters', drawPosters(k('posters'), box('posters')), box('posters'));
-    if (has('shelf')) put('decor-shelf', drawShelf(k('shelf'), ['country_5', 'coast_5', 'city_5'].map(id => !!state.events[id]?.won), box('shelf')), box('shelf'));
-    if (has('lights')) {
-      put('decor-lights', drawLights(k('lights'), box('lights')), box('lights'));
-      // the warmer light also brightens the whole room a touch
-      const glow = this.add.rectangle(0, 0, W * 2, this.scale.height * 2, 0xffc27a, 0.07).setOrigin(0).setDepth(-7).setBlendMode(Phaser.BlendModes.ADD);
-      this.decor.push(glow);
-    }
-    if (has('neon')) {
-      const neon = put('decor-neon', drawNeon(k('neon'), box('neon')), box('neon'));
-      if (!state.reducedMotion) this.tweens.add({ targets: neon, alpha: { from: 1, to: 0.82 }, duration: 90, yoyo: true, repeat: -1, repeatDelay: 2600 });
-    }
-    if (has('lift')) {
-      if (!this.textures.exists('decor-lift')) addTex(this, 'decor-lift', drawLift());
-      this.lift = this.add.image(0, 0, 'decor-lift').setOrigin(0.5, 1).setDepth(-1);
-      this.decor.push(this.lift);
-    }
-  }
 
   // A different car may live in a different scene.
   showCar() {
@@ -145,17 +105,13 @@ export class GarageScene extends Phaser.Scene {
     const y = Math.max(this.floorY + w * 0.2, Math.min(this.groundY, (f.y + f.h) * DPR - 4 * DPR));
     const scrollY = 0;
     const cam = this.cameras.main;
-    // the lift frames the car: a post just past each bumper, a little taller than the roof
-    const lift = { x: x - w / 2, y: y + w * 0.02, displayWidth: w * 1.16, displayHeight: w * 0.5 };
-    this.tweens.killTweensOf([this.car.c, cam, ...(this.lift ? [this.lift] : [])]);
+    this.tweens.killTweensOf([this.car.c, cam]);
     if (!animate) {
       this.car.setWidth(w);
       this.car.c.setPosition(x, y).setScale(1);
-      this.lift?.setPosition(lift.x, lift.y).setDisplaySize(lift.displayWidth, lift.displayHeight);
       cam.scrollY = scrollY;
       return;
     }
-    if (this.lift) this.tweens.add({ targets: this.lift, ...lift, duration: 280, ease: 'Cubic.easeOut' });
     const size = { w: this.car.w };
     this.tweens.add({ targets: size, w, duration: 280, ease: 'Cubic.easeOut', onUpdate: () => this.car?.setWidth(size.w) });
     this.tweens.add({ targets: this.car.c, x, y, duration: 280, ease: 'Cubic.easeOut' });

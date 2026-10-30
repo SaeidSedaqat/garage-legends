@@ -28,7 +28,7 @@ Close the black window to stop it.
     stronger.
   - Garage: Tap Power (+$1 a tap per level, no limit) and Pit Crew (taps 0.5 times a second as
     soon as Local Rival is won; each level adds 0.25 taps/s, no limit),
-    plus Reputation (stars and garage decor).
+    plus Reputation (stars and star-milestone rewards).
 - **Race:** press and hold the button (or Space) when the amber lights come on, then let go the
   instant the light turns GREEN: the launch is scored on reaction time (under 0.2 s is perfect).
   Letting go early is a jump start. Tap to shift when the
@@ -41,8 +41,8 @@ Close the black window to stop it.
 - **Achievements** (trophy icon): 24 goals from your first win to Legend round 20, each with a
   cash reward.
 - **Progress:** 15 events across Countryside, Coastal and City, 3 stars each. Stars are Reputation:
-  each one adds 5% to tap income, and star milestones pay out cash or add decor to the garage
-  (trophy shelf, posters, string lights, car lift, neon sign). Winning City Champion unlocks
+  each one adds 5% to tap income, and star milestones pay out cash (45★ also gives the "Garage
+  Legend" title). Winning City Champion unlocks
   the Apex Zero and the endless **Legend Series**.
 - **Before each race** a matchup screen shows your car against the rival, the recommended PR and
   the reward, and lets you change car.
@@ -130,7 +130,4 @@ To get there:
 - Every car has its own themed scene (`assets/scene-<car>.jpg`, `SCENES` in `src/art.js`, with
   crops and floor lines). The one for the car you drive loads at startup, the rest in the
   background; the old garage (`bg-garage.jpg`) only shows while a scene is still loading.
-  Star-milestone decor (shelf and cups, posters, lights, car lift, neon sign) is painted on
-  `assets/decor.jpg` (`DECOR_SHEET`) and lives in the Kaze's hometown garage; the LEGEND
-  letters are drawn in code so they stay crisp.
 - Not built yet from the GDD: portal adapters.

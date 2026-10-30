@@ -421,13 +421,13 @@ svg { display: block; }
 .chip-title { color: var(--gold); }
 .chip-tier { white-space: nowrap; }
 @media (max-width: 420px) { .chip-title, .chip-title + .sep { display: none; } }
-.decor-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.decor { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px; background: var(--card); color: var(--muted); font-size: 12.5px; font-weight: 700; }
-.decor svg { width: 15px; height: 15px; flex: none; }
-.decor span { flex: 1; min-width: 0; }
-.decor b { color: var(--gold); font-size: 11.5px; }
-.decor.on { color: var(--text); background: rgba(60, 207, 120, 0.12); }
-.decor.on svg { color: var(--green-hi); }
+.ms-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ms { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px; background: var(--card); color: var(--muted); font-size: 12.5px; font-weight: 700; }
+.ms svg { width: 15px; height: 15px; flex: none; }
+.ms span { flex: 1; min-width: 0; }
+.ms b { color: var(--gold); font-size: 11.5px; }
+.ms.on { color: var(--text); background: rgba(60, 207, 120, 0.12); }
+.ms.on svg { color: var(--green-hi); }
 
 /* ------------------------------------------------------------ pre-race matchup */
 

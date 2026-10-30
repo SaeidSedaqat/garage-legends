@@ -233,7 +233,7 @@ function goal() {
   if (next) return { text: `Save for the ${next.name} (${fmt(next.price)})`, car: next.id };
   if (legendUnlocked()) return { text: `Legend Series: Round ${state.legend.round}`, panel: 'races', envTab: 'legend' };
   const m = MILESTONES.find(x => x.stars > totalStars());
-  return m ? { text: `Earn ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
+  return m ? { text: `Earn ${m.stars}★ for ${fmt(m.cash)}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
 }
 
 // The garage view (CSS px): the screen beside the dock, or above it on phones held upright
@@ -333,7 +333,7 @@ function renderUpgrades() {
     lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
     gain: `${crewRate(au)} → ${crewRate(au + 1)} taps / s`,
   }) + upgButton({
-    action: 'rep', id: 'rep', icon: 'star', name: 'Reputation', desc: 'Every race star adds 5% to tap income and unlocks garage decor.',
+    action: 'rep', id: 'rep', icon: 'star', name: 'Reputation', desc: 'Every race star adds 5% to tap income, and star milestones pay out cash.',
     gain: `×${mult.toFixed(2)} tap income`, tag: `★ ${stars}`,
   });
   return `<div class="dock-head">${car.name} · PR <b>${carPR(state.car)}</b></div><div class="upg-grid">${parts}</div>
@@ -342,13 +342,13 @@ function renderUpgrades() {
 
 function showReputation() {
   const stars = totalStars(), mult = 1 + STAR_BONUS * stars, m = MILESTONES.find(x => x.stars > stars);
-  const decor = MILESTONES.filter(x => x.decor).map(x => {
+  const list = MILESTONES.map(x => {
     const on = stars >= x.stars;
-    return `<div class="decor ${on ? 'on' : ''}">${on ? ICONS.check : ICONS.lock}<span>${x.decor}</span><b>${x.stars}★</b></div>`;
+    return `<div class="ms ${on ? 'on' : ''}">${on ? ICONS.check : ICONS.lock}<span>${fmt(x.cash)}${x.title ? ` · "${x.title}"` : ''}</span><b>${x.stars}★</b></div>`;
   }).join('');
   modal(`<div class="result-title">Reputation</div>
-    <div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Tap income ×${mult.toFixed(2)}</b><div class="desc">Every star from a race adds 5%. ${m ? `Next: ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}` : 'Every star earned!'}</div></div></div>
-    <div class="hint">Garage decor, earned with stars</div><div class="decor-list">${decor}</div>
+    <div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Tap income ×${mult.toFixed(2)}</b><div class="desc">Every star from a race adds 5%. ${m ? `Next: ${m.stars}★ for ${fmt(m.cash)}` : 'Every star earned!'}</div></div></div>
+    <div class="hint">Star milestones</div><div class="ms-list">${list}</div>
     <div class="actions"><button class="btn go" data-m="close">Close</button></div>`, { close: coachUpdate });
 }
 
@@ -844,7 +844,7 @@ export function showResult(d, actions) {
   const unlocks = [];
   if (d.env) unlocks.push(`${d.env.name} unlocked!`);
   else if (d.next) unlocks.push(`${d.next.name} unlocked!`);
-  for (const m of d.milestones) if (m.decor) unlocks.push(`${m.stars}★: ${m.decor} in your garage${m.title ? ` · "${m.title}"` : ''}`);
+  for (const m of d.milestones) if (m.title) unlocks.push(`${m.stars}★: you are now a "${m.title}"!`);
   if (d.event.id === LEGEND.unlock && d.firstWin) unlocks.push('The Apex Zero can now be bought!', 'The Legend Series is open!');
   const legend = d.event.legend;
   modal(`
