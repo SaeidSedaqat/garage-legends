@@ -124,7 +124,7 @@ To get there:
 - All 10 cars are original designs on two sheets: `assets/cars-side.webp` (race side views)
   and `assets/cars-pose.webp` (garage views). Crops and wheel circles are in `ART` in
   `src/data.js`. Every rival drives one of these models in its own colours (`tint`).
-- Sounds are synthesized in code.
+- Sounds and music are real recordings; see Credits below.
 - Rival portraits are on `assets/portraits.jpg` (`portrait` crops in `OPPONENTS`) and show on
   the pre-race screen. Upgrade part icons are painted on `assets/parts.jpg` (`PART_ICONS` in
   `src/art.js`); Tires and Drag Slicks use the tyre stack, and the Golden Wrench the wrench,
@@ -134,3 +134,20 @@ To get there:
   crops and floor lines). The one for the car you drive loads at startup, the rest in the
   background; the old garage (`bg-garage.jpg`) only shows while a scene is still loading.
 - Not built yet from the GDD: portal adapters.
+
+## Credits
+
+Sound effects and music (all free for commercial use):
+
+- Crowd cheering: "Free Crowd Cheering Sounds" by Gregor Quendel, CC BY 4.0,
+  https://opengameart.org/content/free-crowd-cheering-sounds
+- Tyre squeal: "Car tire squeal skid loop" by audible-edge (Tom Haigh), CC BY 3.0,
+  https://opengameart.org/content/car-tire-squeal-skid-loop
+- Engine loop: "racing car engine sound loops" by domasx2, CC0
+- Effects: Kenney.nl Casino Audio, Interface Sounds, Digital Audio, Impact Sounds, Music Jingles
+  and Sci-fi Sounds, CC0
+- Music: "Awake! (Megawall-10)" by cynicmusic (CC0); "Countryside" and "Oceanside" from TAD's
+  lofi compilation (CC0)
+
+Clips are trimmed and converted to WebM (Opus) and M4A (AAC) in `assets/audio/`; the game loads
+whichever the browser plays. The engine loop stays WAV so it loops without a gap.

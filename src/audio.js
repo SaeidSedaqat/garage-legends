@@ -1,7 +1,17 @@
-// Synthesized placeholder audio (WebAudio), so the prototype ships with no sound files.
+// Game audio (WebAudio). Effects are short clips decoded once; music streams from audio
+// elements so long tracks don't sit in memory decoded. Clips are WebM (Opus) where the browser
+// plays it and M4A (AAC) elsewhere (older Safari); the engine loop stays WAV so it loops
+// without a gap. Credits for the sources are in README.md and Settings.
 let ctx = null;
-let master = null;
-let muted = false;
+let master = null, sfxBus = null, musicBus = null;
+let muted = false, musicOn = true;
+const SFX_VOL = 0.8, MUSIC_VOL = 0.35;
+
+const FORMAT = (() => {
+  const a = document.createElement('audio');
+  return a.canPlayType?.('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
+})();
+const file = name => `assets/audio/${name}.${FORMAT}`;
 
 function ac() {
   if (!ctx) {
@@ -9,115 +19,163 @@ function ac() {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.7;
+    master.gain.value = muted ? 0 : 1;
     master.connect(ctx.destination);
+    sfxBus = ctx.createGain();
+    sfxBus.gain.value = SFX_VOL;
+    sfxBus.connect(master);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = musicOn ? MUSIC_VOL : 0;
+    musicBus.connect(master);
+    loadClips();
+    music.resume();
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }
 
+// Browsers only allow sound after the player touches the page, so audio starts on the first input.
 export const unlockAudio = () => ac();
+for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, unlockAudio, { once: true, capture: true });
 
 export function setMuted(m) {
   muted = m;
-  if (master) master.gain.value = m ? 0 : 0.7;
+  if (master) master.gain.value = m ? 0 : 1;
+}
+export function setMusic(on) {
+  musicOn = on;
+  if (musicBus) musicBus.gain.setTargetAtTime(on ? MUSIC_VOL : 0, ctx.currentTime, 0.1);
 }
 
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
-  if (document.hidden) ctx.suspend();
-  else ctx.resume();
+  if (document.hidden) { ctx.suspend(); music.el?.pause(); }
+  else { ctx.resume(); music.el?.play().catch(() => {}); }
 });
 
-function tone(freq, dur, { type = 'sine', vol = 0.15, to = null, delay = 0 } = {}) {
-  const c = ac();
-  if (!c) return;
-  const t = c.currentTime + delay;
-  const o = c.createOscillator();
-  const g = c.createGain();
-  o.type = type;
-  o.frequency.setValueAtTime(freq, t);
-  if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(master);
-  o.start(t);
-  o.stop(t + dur + 0.05);
+// ---------------------------------------------------------------- effects
+
+// clip name → relative volume
+const CLIPS = {
+  tap1: 0.5, tap2: 0.5, tap3: 0.5, crit: 0.8, buy: 0.7, click: 0.5, deny: 0.6,
+  amber: 0.6, green: 0.8, jump: 0.7, shift: 0.7, perfect: 0.6, nitro: 0.8,
+  wrench: 0.7, achieve: 0.6, win: 0.9, lose: 0.7, crowd: 0.6, screech: 0.45,
+};
+const buffers = {};
+function loadClips() {
+  for (const name of [...Object.keys(CLIPS), 'engine']) {
+    const url = name === 'engine' ? 'assets/audio/engine.wav' : file(name);
+    fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {
+      buffers[name] = buf;
+      if (name === 'engine' && engine.wanted) engine.start();
+    }).catch(() => { /* a missing clip just stays silent */ });
+  }
 }
 
-function noise(dur, vol, freq) {
+function play(name, { rate = 1, vol = 1, delay = 0 } = {}) {
   const c = ac();
-  if (!c) return;
-  const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-  const src = c.createBufferSource();
-  const f = c.createBiquadFilter();
-  const g = c.createGain();
-  src.buffer = buf;
-  f.type = 'bandpass';
-  f.frequency.value = freq;
-  g.gain.value = vol;
-  src.connect(f).connect(g).connect(master);
-  src.start();
+  if (!c || !buffers[name]) return null;
+  const src = c.createBufferSource(), g = c.createGain();
+  src.buffer = buffers[name];
+  src.playbackRate.value = rate;
+  g.gain.value = CLIPS[name] * vol;
+  src.connect(g).connect(sfxBus);
+  src.start(c.currentTime + delay);
+  return src;
 }
 
 export const sfx = {
-  tap: () => tone(520 + Math.random() * 80, 0.07, { type: 'triangle', vol: 0.08, to: 900 }),
-  click: () => tone(700, 0.05, { type: 'triangle', vol: 0.06 }),
-  buy: () => { tone(660, 0.08, { type: 'square', vol: 0.05 }); tone(990, 0.12, { type: 'square', vol: 0.05, delay: 0.07 }); },
-  deny: () => tone(160, 0.14, { type: 'sawtooth', vol: 0.06 }),
-  amber: () => tone(600, 0.12, { vol: 0.12 }),
-  green: () => tone(1000, 0.35, { vol: 0.14 }),
-  red: () => tone(220, 0.5, { type: 'sawtooth', vol: 0.1, to: 110 }),
-  shift: q => { noise(0.08, 0.25, 2500); if (q === 'perfect') tone(1320, 0.15, { type: 'triangle', vol: 0.08 }); },
-  win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.1, delay: i * 0.1 })),
-  lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.22, { type: 'triangle', vol: 0.08, delay: i * 0.14 })),
+  tap: () => play(`tap${1 + Math.floor(Math.random() * 3)}`, { rate: 0.95 + Math.random() * 0.1 }),
+  crit: () => play('crit'),
+  click: () => play('click'),
+  buy: () => play('buy'),
+  deny: () => play('deny'),
+  amber: () => play('amber'),
+  green: () => play('green'),
+  red: () => play('jump'),
+  shift: q => { play('shift', { rate: q === 'early' ? 0.85 : 1 }); if (q === 'perfect') play('perfect', { delay: 0.04 }); },
+  nitro: chain => play('nitro', { rate: chain ? 1.2 : 1, vol: chain ? 1.1 : 1 }),
+  screech: hard => play('screech', { vol: hard ? 1.3 : 0.7 }),
+  wrench: () => play('wrench'),
+  achieve: () => play('achieve'),
+  win: () => { play('win'); play('crowd', { delay: 0.3 }); },
+  lose: () => play('lose'),
 };
 
-// Engine drone whose pitch follows RPM.
+// ---------------------------------------------------------------- engine
+
+// A recorded engine loop whose playback speed (and so its pitch) follows the RPM.
 export const engine = {
   nodes: null,
+  wanted: false,
   start() {
+    this.wanted = true;
     const c = ac();
-    if (!c || this.nodes) return;
-    const out = c.createGain();
-    const filter = c.createBiquadFilter();
-    const o1 = c.createOscillator();
-    const o2 = c.createOscillator();
-    const sub = c.createGain();
-    out.gain.value = 0;
+    if (!c || this.nodes || !buffers.engine) return;
+    const src = c.createBufferSource(), filter = c.createBiquadFilter(), out = c.createGain();
+    src.buffer = buffers.engine;
+    src.loop = true;
     filter.type = 'lowpass';
-    filter.frequency.value = 800;
-    o1.type = 'sawtooth';
-    o2.type = 'square';
-    o2.detune.value = -1200;
-    sub.gain.value = 0.5;
-    o1.connect(filter);
-    o2.connect(sub).connect(filter);
-    filter.connect(out).connect(master);
-    o1.start();
-    o2.start();
-    out.gain.setTargetAtTime(0.07, c.currentTime, 0.1);
-    this.nodes = { out, filter, o1, o2 };
+    filter.frequency.value = 1200;
+    out.gain.value = 0;
+    src.connect(filter).connect(out).connect(sfxBus);
+    src.start();
+    out.gain.setTargetAtTime(0.35, c.currentTime, 0.1);
+    this.nodes = { src, filter, out };
   },
   set(rpm, load) {
     if (!this.nodes) return;
     const t = ctx.currentTime;
-    const f = 20 + rpm / 30;
-    this.nodes.o1.frequency.setTargetAtTime(f, t, 0.02);
-    this.nodes.o2.frequency.setTargetAtTime(f, t, 0.02);
-    this.nodes.filter.frequency.setTargetAtTime(500 + load * 1800, t, 0.05);
+    this.nodes.src.playbackRate.setTargetAtTime(Math.min(2.6, Math.max(0.5, 0.45 + rpm / 4200)), t, 0.03);
+    this.nodes.filter.frequency.setTargetAtTime(700 + load * 3000, t, 0.05);
+    this.nodes.out.gain.setTargetAtTime(0.2 + load * 0.25, t, 0.05);
   },
   pause(on) {
-    if (this.nodes) this.nodes.out.gain.setTargetAtTime(on ? 0 : 0.07, ctx.currentTime, 0.05);
+    if (this.nodes) this.nodes.out.gain.setTargetAtTime(on ? 0 : 0.35, ctx.currentTime, 0.05);
   },
   stop() {
+    this.wanted = false;
     if (!this.nodes) return;
-    const { out, o1, o2 } = this.nodes;
+    const { src, out } = this.nodes;
     this.nodes = null;
     out.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
-    setTimeout(() => { o1.stop(); o2.stop(); out.disconnect(); }, 400);
+    setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } out.disconnect(); }, 400);
+  },
+};
+
+// ---------------------------------------------------------------- music
+
+// 'garage' alternates between two calm tracks; 'race' is the upbeat one. Each streams from an
+// <audio> element routed through the music channel, and crossfades in.
+const TRACKS = { garage: ['music-garage1', 'music-garage2'], race: ['music-race'] };
+export const music = {
+  el: null, mood: null, nextGarage: Math.floor(Math.random() * 2),
+  play(mood) {
+    if (this.mood === mood && this.el) return;
+    this.mood = mood;
+    if (ctx) this.start();
+  },
+  resume() { if (this.mood) this.start(); },
+  start() {
+    const list = TRACKS[this.mood];
+    const name = this.mood === 'garage' ? list[this.nextGarage++ % list.length] : list[0];
+    const old = this.el;
+    const el = new Audio(file(name));
+    el.loop = this.mood === 'race';
+    el.crossOrigin = 'anonymous';
+    const src = ctx.createMediaElementSource(el), g = ctx.createGain();
+    g.gain.value = 0;
+    src.connect(g).connect(musicBus);
+    g.gain.setTargetAtTime(1, ctx.currentTime, 0.6);
+    // the garage playlist moves on to the other track when one ends
+    el.addEventListener('ended', () => { if (this.el === el) this.start(); });
+    el.play().catch(() => {});
+    this.el = el;
+    if (old) {
+      const og = old.gain;
+      og?.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+      setTimeout(() => old.pause(), 1500);
+    }
+    el.gain = g;
   },
 };

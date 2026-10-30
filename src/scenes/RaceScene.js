@@ -6,7 +6,7 @@ import {
   nitro, nitroReady,
 } from '../physics.js';
 import { CarView, MOCKUP, PROPS, cover, addTex, drawGround, drawDashes, drawChecker, drawMarks } from '../art.js';
-import { sfx, engine } from '../audio.js';
+import { sfx, engine, music } from '../audio.js';
 import { platform } from '../platform.js';
 import * as ui from '../ui.js';
 
@@ -90,6 +90,7 @@ export class RaceScene extends Phaser.Scene {
       ui.coachOff();
     });
     engine.start();
+    music.play('race');
     platform.gameplayStart();
   }
 
@@ -530,6 +531,7 @@ export class RaceScene extends Phaser.Scene {
     this.lastPress = this.t;
     ui.callout(...NITRO_TEXT[q]);
     if (q === 'chain') ui.buzz(40);
+    if (q !== 'early') sfx.nitro(q === 'chain');
     if (q !== 'early' && !state.reducedMotion) this.cameras.main.shake(q === 'chain' ? 160 : 90, q === 'chain' ? 0.004 : 0.002);
     if (p.nitro > 0) ui.setPrimary('nitro', p.nitro);
     else { ui.setPrimary('done'); ui.raceMsg('Out of nitro. Hold on!'); }
@@ -554,6 +556,8 @@ export class RaceScene extends Phaser.Scene {
     const label = launch(p, this.t - this.greenAt, jump);
     ui.callout(LAUNCH_TEXT[label], LAUNCH_KIND[label]);
     if (label === 'perfect') ui.buzz(40);
+    // tyres squeal off the line, hardest in a wheelspin-prone car
+    if (!jump) sfx.screech(p.spec.quirk === 'wheelspin');
     ui.setPrimary('shift');
     ui.raceMsg('Shift in the green zone');
   }

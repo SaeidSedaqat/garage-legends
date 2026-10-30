@@ -6,6 +6,7 @@ $types = @{
   '.html' = 'text/html; charset=utf-8'; '.js' = 'text/javascript; charset=utf-8'; '.css' = 'text/css; charset=utf-8'
   '.json' = 'application/json'; '.png' = 'image/png'; '.jpg' = 'image/jpeg'; '.webp' = 'image/webp'
   '.svg' = 'image/svg+xml'; '.mp3' = 'audio/mpeg'; '.ogg' = 'audio/ogg'; '.wav' = 'audio/wav'; '.ico' = 'image/x-icon'
+  '.webm' = 'audio/webm'; '.m4a' = 'audio/mp4'
 }
 
 $listener = [System.Net.HttpListener]::new()

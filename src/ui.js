@@ -12,7 +12,7 @@ import {
 import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
-import { sfx, setMuted } from './audio.js';
+import { sfx, setMuted, setMusic } from './audio.js';
 import { carPreview, partIconURL, portraitURL, uiIconURL } from './art.js';
 
 const $ = id => document.getElementById(id);
@@ -107,8 +107,12 @@ export function init(g) {
   $('btn-settings').innerHTML = ICONS.settings;
   $('btn-settings').addEventListener('click', () => { sfx.click(); showSettings(); });
   setMuted(state.muted);
+  setMusic(!state.musicOff);
   applyMotion();
-  bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
+  bus.on('achievement', list => {
+    sfx.achieve();
+    list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy'));
+  });
 
   // keyboard: Enter presses a dialog's main button, Escape closes it; in the garage the arrow
   // keys flip through cars and R opens the race list (GDD §10.10)
@@ -206,6 +210,7 @@ function flash(el) {
 function toggleSound() {
   state.muted = !state.muted;
   setMuted(state.muted);
+  setMusic(!state.musicOff);
   changed('settings');
 }
 
@@ -568,7 +573,8 @@ export function showSettings() {
   const unit = u => `<button data-set="${u}" class="${state.units === u ? 'on' : ''}">${u === 'mph' ? 'MPH' : 'KM/H'}</button>`;  modal(`
     <div class="result-title">Settings</div>
     <div class="set-list">
-      ${toggle('sound', !state.muted, 'Sound', 'Engine, lights and effects')}
+      ${toggle('sound', !state.muted, 'Sound', 'All game audio')}
+      ${toggle('music', !state.musicOff, 'Music', 'Garage and race music')}
       ${toggle('motion', state.reducedMotion, 'Reduce motion', 'Fewer shakes, bounces and flashes')}
       <div class="set-row"><span><b>Speed units</b><small>Shown on the speedometer</small></span><span class="seg">${unit('kmh')}${unit('mph')}</span></div>
     </div>
@@ -580,6 +586,7 @@ export function showSettings() {
       <div class="row"><span>Earned by your crew</span><span>${fmt(s.fromAuto)}</span></div>
       ${state.legend.best ? `<div class="row"><span>Best Legend round</span><span>${state.legend.best}</span></div>` : ''}
     </div>
+    <div class="credits"><b>Credits</b>Crowd cheering: Gregor Quendel (CC BY 4.0) · Tyre squeal: audible-edge / Tom Haigh (CC BY 3.0) · Engine loop: domasx2 (CC0) · Effects: Kenney.nl (CC0) · Music: "Awake! (Megawall-10)" by cynicmusic, "Countryside" and "Oceanside" by TAD (CC0)</div>
     <button class="btn danger wide" data-set="reset">Reset progress</button>
     <div class="actions"><button class="btn go" data-m="close">Done</button></div>`, { close: coachUpdate });
   const base = $('modal-card').onclick;
@@ -589,6 +596,13 @@ export function showSettings() {
     sfx.click();
     const k = b.dataset.set;
     if (k === 'sound') { toggleSound(); b.querySelector('.switch').classList.toggle('on', !state.muted); return; }
+    if (k === 'music') {
+      state.musicOff = !state.musicOff;
+      setMusic(!state.musicOff);
+      changed('settings');
+      b.querySelector('.switch').classList.toggle('on', !state.musicOff);
+      return;
+    }
     if (k === 'motion') state.reducedMotion = !state.reducedMotion;
     if (k === 'mph' || k === 'kmh') { state.units = k; state.unitsChosen = true; }
     if (k === 'reset') {

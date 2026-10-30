@@ -3,7 +3,7 @@ import { CarView, GARAGE, SCENES, cover } from '../art.js';
 import { WRENCH } from '../data.js';
 import { state, carLock, clickValue, grabWrench, tap } from '../state.js';
 import { bus } from '../events.js';
-import { sfx } from '../audio.js';
+import { music, sfx } from '../audio.js';
 import * as ui from '../ui.js';
 
 export class GarageScene extends Phaser.Scene {
@@ -11,6 +11,7 @@ export class GarageScene extends Phaser.Scene {
 
   create() {
     ui.showGarage();
+    music.play('garage');
     this.car = null;
     this.build();
     // fetch every car's scene in the background, so flipping cars never waits on one
@@ -140,7 +141,7 @@ export class GarageScene extends Phaser.Scene {
   tap(x, y) {
     const hit = tap();
     if (!hit) return;
-    if (hit.crit) sfx.buy(); else sfx.tap();
+    if (hit.crit) sfx.crit(); else sfx.tap();
     bus.emit('tap');
     this.popup(x, y, hit.crit ? `CRIT +${ui.fmt(hit.value)}` : `+${ui.fmt(hit.value)}`, hit.crit);
 
@@ -209,7 +210,7 @@ export class GarageScene extends Phaser.Scene {
   grabWrench() {
     const { x, y } = this.wrench, value = clickValue() * WRENCH.mult;
     grabWrench(value);
-    sfx.win();
+    sfx.wrench();
     this.popup(x, y, `GOLDEN WRENCH +${ui.fmt(value)}`, true);
     this.dropWrench();
   }

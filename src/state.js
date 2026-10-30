@@ -27,7 +27,7 @@ function fresh() {
       clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0,
       crits: 0, wrenches: 0, perfectLaunches: 0, bestChain: 0, photoFinishes: 0, comebacks: 0, flawlessWins: 0,
     },
-    muted: false, units: 'kmh', unitsChosen: false, reducedMotion: prefersReducedMotion(), lastActive: Date.now(),
+    muted: false, musicOff: false, units: 'kmh', unitsChosen: false, reducedMotion: prefersReducedMotion(), lastActive: Date.now(),
   };
 }
 
@@ -104,6 +104,7 @@ function validate(raw) {
   s.unitsChosen = !!s.unitsChosen;
   s.units = s.unitsChosen && s.units === 'mph' ? 'mph' : 'kmh';
   s.reducedMotion = !!s.reducedMotion;
+  s.musicOff = !!s.musicOff;
   // players who already raced or tuned (including migrated saves) skip the first-session guide
   s.tutorial = { ...s.tutorial };
   if (Object.keys(s.events).length || s.stats.races > 0) s.tutorial = { upgraded: true, raced: true, done: true };
