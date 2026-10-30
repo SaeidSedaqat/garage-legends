@@ -1,5 +1,5 @@
 import { DPR, FONT } from '../config.js';
-import { CarView, GARAGE, DECOR, addTex, cover, drawLift, drawLights, drawNeon, drawPosters, drawShelf } from '../art.js';
+import { CarView, GARAGE, DECOR, SCENES, addTex, cover, drawLift, drawLights, drawNeon, drawPosters, drawShelf } from '../art.js';
 import { MILESTONES, WRENCH } from '../data.js';
 import { state, carLock, clickValue, grabWrench, tap, totalStars } from '../state.js';
 import { bus } from '../events.js';
@@ -17,11 +17,11 @@ export class GarageScene extends Phaser.Scene {
     const offs = [
       bus.on('focus', () => this.placeCar(true)),
       bus.on('change', what => {
-        if (what === 'car') this.makeCar();
+        if (what === 'car') this.showCar();
         if (what === 'race') { this.buildDecor(); this.placeCar(false); }
       }),
       bus.on('upgraded', u => this.installFx(u)),
-      bus.on('view', () => this.makeCar()),
+      bus.on('view', () => this.showCar()),
     ];
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.build, this);
@@ -33,53 +33,81 @@ export class GarageScene extends Phaser.Scene {
     this.scheduleWrench();
   }
 
+  // The scene behind the car on show: its own themed scene once loaded, else the home garage.
+  sceneFor(id) {
+    const sc = SCENES[id];
+    if (!sc) return GARAGE;
+    const key = `scene-${id}`;
+    if (this.textures.exists(key)) return { ...sc, key, frame: sc.crop ? 'crop' : undefined };
+    if (!this.loading?.has(key)) {
+      (this.loading ??= new Set()).add(key);
+      this.load.image(key, sc.file);
+      this.load.once(`filecomplete-image-${key}`, () => {
+        if (sc.crop) this.textures.get(key).add('crop', 0, ...sc.crop);
+        if (this.sys.isActive() && ui.shownCar() === id) this.build();
+      });
+      this.load.start();
+    }
+    return GARAGE;
+  }
+
   build() {
     // the garage fills the screen beside the dock (above it on phones held upright)
     const area = ui.garageArea(), W = area.w * DPR, H = area.h * DPR;
+    const sc = (this.sc = this.sceneFor(ui.shownCar()));
     this.bg?.destroy();
     this.sign?.destroy();
-    this.bg = this.add.image(0, 0, GARAGE.key).setDepth(-10);
+    this.sign = null;
+    this.bg = this.add.image(0, 0, sc.key, sc.frame).setDepth(-10);
     const s = cover(this.bg, W, H);
     const fw = this.bg.frame.width, fh = this.bg.frame.height;
     const top = H / 2 - (fh * s) / 2;
-    this.floorY = top + fh * s * GARAGE.floor;
-    this.groundY = top + fh * s * GARAGE.ground;
+    this.floorY = top + fh * s * sc.floor;
+    this.groundY = top + fh * s * sc.ground;
 
     // the board is painted blank so its lettering stays crisp at any size
-    const b = GARAGE.sign;
-    this.sign = this.add.text(W / 2 + (b.x + b.w / 2 - fw / 2) * s, top + (b.y + b.h / 2) * s, b.lines.join('\n'), {
-      fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic bold',
-      fontSize: `${Math.round(b.h * s * 0.24)}px`, color: '#f1c45a', align: 'center', lineSpacing: -b.h * s * 0.04,
-      shadow: { offsetX: 0, offsetY: 0, color: '#f1b434', blur: b.h * s * 0.08, fill: true },
-    }).setOrigin(0.5).setDepth(-9);
-    this.bgLayout = { W, s, fw, top };
+    const b = sc.sign;
+    if (b) {
+      this.sign = this.add.text(W / 2 + (b.x + b.w / 2 - fw / 2) * s, top + (b.y + b.h / 2) * s, b.lines.join('\n'), {
+        fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic bold',
+        fontSize: `${Math.round(b.h * s * 0.24)}px`, color: '#f1c45a', align: 'center', lineSpacing: -b.h * s * 0.04,
+        shadow: { offsetX: 0, offsetY: 0, color: '#f1b434', blur: b.h * s * 0.08, fill: true },
+      }).setOrigin(0.5).setDepth(-9);
+    }
+    this.bgLayout = { W, s, fw, top, ox: sc.crop?.[0] || 0, oy: sc.crop?.[1] || 0 };
     this.buildDecor();
     this.makeCar();
   }
 
-  // Decor earned at star milestones (GDD §7.5), placed in background-image coordinates.
+  // Decor earned at star milestones (GDD §7.5), placed in background-image coordinates. Only
+  // the home garage and the hometown scene have it; the car lift goes wherever there's decor.
   buildDecor() {
     this.decor?.forEach(o => { this.tweens.killTweensOf(o); o.destroy(); });
     this.decor = [];
     this.lift = null;
-    const { W, s, fw, top } = this.bgLayout, stars = totalStars();
+    const D = this.sc.decor;
+    if (!D) return;
+    const { W, s, fw, top, ox, oy } = this.bgLayout, stars = totalStars();
     const has = key => stars >= MILESTONES.find(m => m.key === key).stars;
-    const put = (key, canvas, box) => {
+    // a piece's box: its design size from DECOR, placed (and scaled by `k`) for this scene
+    const box = key => ({ ...DECOR[key], ...D[key] });
+    const put = (key, canvas, b) => {
       addTex(this, key, canvas);
-      const im = this.add.image(W / 2 + (box.x - fw / 2) * s, top + box.y * s, key).setOrigin(0).setDepth(-8);
+      const im = this.add.image(W / 2 + (b.x - ox - fw / 2) * s, top + (b.y - oy) * s, key).setOrigin(0).setDepth(-8);
       this.decor.push(im);
       return im;
     };
-    if (has('posters')) put('decor-posters', drawPosters(s), DECOR.posters);
-    if (has('shelf')) put('decor-shelf', drawShelf(s, ['country_5', 'coast_5', 'city_5'].map(id => !!state.events[id]?.won)), DECOR.shelf);
+    const k = key => s * (box(key).k || 1);
+    if (has('posters')) put('decor-posters', drawPosters(k('posters'), box('posters')), box('posters'));
+    if (has('shelf')) put('decor-shelf', drawShelf(k('shelf'), ['country_5', 'coast_5', 'city_5'].map(id => !!state.events[id]?.won), box('shelf')), box('shelf'));
     if (has('lights')) {
-      put('decor-lights', drawLights(s), DECOR.lights);
+      put('decor-lights', drawLights(k('lights'), box('lights')), box('lights'));
       // the warmer light also brightens the whole room a touch
       const glow = this.add.rectangle(0, 0, W * 2, this.scale.height * 2, 0xffc27a, 0.07).setOrigin(0).setDepth(-7).setBlendMode(Phaser.BlendModes.ADD);
       this.decor.push(glow);
     }
     if (has('neon')) {
-      const neon = put('decor-neon', drawNeon(s), DECOR.neon);
+      const neon = put('decor-neon', drawNeon(k('neon'), box('neon')), box('neon'));
       if (!state.reducedMotion) this.tweens.add({ targets: neon, alpha: { from: 1, to: 0.82 }, duration: 90, yoyo: true, repeat: -1, repeatDelay: 2600 });
     }
     if (has('lift')) {
@@ -87,6 +115,12 @@ export class GarageScene extends Phaser.Scene {
       this.lift = this.add.image(0, 0, 'decor-lift').setOrigin(0.5, 1).setDepth(-1);
       this.decor.push(this.lift);
     }
+  }
+
+  // A different car may live in a different scene.
+  showCar() {
+    if (this.sceneFor(ui.shownCar()).key !== this.sc?.key) this.build();
+    else this.makeCar();
   }
 
   makeCar() {

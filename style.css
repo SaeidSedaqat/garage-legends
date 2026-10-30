@@ -806,3 +806,7 @@ body.reduced .upg-btn.flash { animation: none; }
   .car-buy { bottom: calc(var(--dock-h) + 72px); padding: 9px 12px; }
   .car-arrow { width: 44px; height: 44px; }
 }
+/* the buy card sits up under the goal chip, over the scenery rather than the car */
+.car-buy { top: calc(124px + var(--st)); bottom: auto; }
+@media (orientation: landscape) and (max-height: 520px) { .car-buy { top: calc(100px + var(--st)); bottom: auto; } }
+@media (orientation: portrait) { .car-buy { top: calc(118px + var(--st)); bottom: auto; } }

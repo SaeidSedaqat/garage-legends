@@ -20,6 +20,25 @@ export const GARAGE = {
   floor: 0.68,  // where the floor starts, under the open door
   ground: 0.84, // where the car's wheels touch the parking bay
   sign: { x: 264, y: 212, w: 156, h: 98, lines: ['Better', 'Faster', 'Higher'] },
+  decor: null, // set below: DECOR, placed for this background
+};
+
+// Themed scenes, one per car; a car without one is shown in GARAGE. Loaded on first view.
+// `crop` [x, y, w, h] trims unwanted edges; `floor`/`ground` are as in GARAGE (fractions of
+// the cropped height). `decor` places the star-milestone decor in scene pixels, `k` scaling
+// each piece; the hometown garage (the starter car's scene) keeps it.
+export const SCENES = {
+  kaze: {
+    file: 'assets/scene-kaze.jpg', floor: 0.555, ground: 0.86,
+    decor: {
+      lights: { x: 385, y: 120, w: 505, h: 46, hooks: [390, 515, 640, 765, 885], sag: 14 },
+      neon: { x: 395, y: 203, k: 0.55 },
+      posters: { x: 398, y: 252, k: 0.8 },
+      shelf: { x: 528, y: 290, k: 0.8 },
+    },
+  },
+  ronin: { file: 'assets/scene-ronin.jpg', crop: [0, 0, 1264, 712], floor: 0.57, ground: 0.9 }, // the bottom held a stray car hood
+  hikari: { file: 'assets/scene-hikari.jpg', crop: [123, 0, 1034, 848], floor: 0.66, ground: 0.9 }, // without the dark side bars
 };
 
 // Scales an image to cover a W×H box, centered horizontally and anchored at `ay` (0 top, 1 bottom).
@@ -327,6 +346,7 @@ export const DECOR = {
   lights: { x: 226, y: 90, w: 936, h: 52, hooks: [236, 466, 696, 926, 1152], sag: 18 },
   neon: { x: 500, y: 112, w: 420, h: 72 },      // on the roll-up door housing
 };
+GARAGE.decor = DECOR;
 
 function scaled(box, s) {
   const c = canvas(box.w * s, box.h * s), x = c.getContext('2d');
@@ -350,8 +370,8 @@ function poster(x, cx, cy, w, h, angle, paint) {
   circle(x, cx, cy - h / 2 + 4, 2.2);
 }
 
-export function drawPosters(s) {
-  const [c, x] = scaled(DECOR.posters, s);
+export function drawPosters(s, D = DECOR.posters) {
+  const [c, x] = scaled(D, s);
   poster(x, 40, 56, 66, 96, -0.05, (l, t, w, h) => {
     const g = x.createLinearGradient(0, t, 0, t + h);
     g.addColorStop(0, '#2a1d4a'); g.addColorStop(0.55, '#d4604a'); g.addColorStop(1, '#f3b562');
@@ -425,8 +445,8 @@ function cup(x, cx, y, h, metal) {
 const GOLD = ['#fff1b0', '#e0a526', '#8a5d0c'], SILVER = ['#ffffff', '#b8c2cc', '#5f6b78'], BRONZE = ['#ffd2a8', '#c27a3e', '#6b3a14'];
 
 // The shelf holds a cup per venue champion won (bronze, silver, gold) and a plaque for the first win.
-export function drawShelf(s, champions) {
-  const D = DECOR.shelf, [c, x] = scaled(D, s), y = D.h - 14;
+export function drawShelf(s, champions, D = DECOR.shelf) {
+  const [c, x] = scaled(D, s), y = D.h - 14;
   x.fillStyle = 'rgba(0,0,0,0.3)';
   x.fillRect(6, y + 6, D.w - 12, 4);
   x.fillStyle = '#7a4f2e';
@@ -450,8 +470,8 @@ export function drawShelf(s, champions) {
 }
 
 // Warm bulbs on a sagging wire along the ceiling beam.
-export function drawLights(s) {
-  const D = DECOR.lights, [c, x] = scaled(D, s), top = 8;
+export function drawLights(s, D = DECOR.lights) {
+  const [c, x] = scaled(D, s), top = 8;
   const pts = [];
   for (let i = 0; i < D.hooks.length - 1; i++) {
     const x0 = D.hooks[i] - D.x, x1 = D.hooks[i + 1] - D.x, n = Math.round((x1 - x0) / 26);
@@ -484,8 +504,8 @@ export function drawLights(s) {
 }
 
 // The pink neon sign; it gets a slow flicker in the scene.
-export function drawNeon(s) {
-  const D = DECOR.neon, [c, x] = scaled(D, s);
+export function drawNeon(s, D = DECOR.neon) {
+  const [c, x] = scaled(D, s);
   x.fillStyle = 'rgba(20,10,30,0.72)';
   rrect(x, 8, 6, D.w - 16, D.h - 12, 10);
   x.textAlign = 'center';

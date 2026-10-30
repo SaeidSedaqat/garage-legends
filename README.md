@@ -124,5 +124,8 @@ To get there:
   and `assets/cars-pose.webp` (garage views). Crops and wheel circles are in `ART` in
   `src/data.js`. Every rival drives one of these models in its own colours (`tint`).
 - Sounds are synthesized in code.
-- Garage decor is drawn in code (`src/art.js`, `DECOR`) until it gets real art.
+- Themed garage scenes (`assets/scene-<car>.jpg`, `SCENES` in `src/art.js`): the Kaze's hometown
+  garage, the Ronin's 80s rooftop and the Hikari's mountain pass so far; other cars use the old
+  garage until their scene arrives. Star-milestone decor is drawn in code (`DECOR`) and shows
+  in the hometown garage and the old garage.
 - Not built yet from the GDD: portal adapters.
