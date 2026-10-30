@@ -39,6 +39,8 @@ export const SCENES = {
   },
   ronin: { file: 'assets/scene-ronin.jpg', crop: [0, 0, 1264, 712], floor: 0.57, ground: 0.9 }, // the bottom held a stray car hood
   hikari: { file: 'assets/scene-hikari.jpg', crop: [123, 0, 1034, 848], floor: 0.66, ground: 0.9 }, // without the dark side bars
+  bulldog: { file: 'assets/scene-bulldog.jpg', crop: [62, 0, 1202, 848], floor: 0.5, ground: 0.86 }, // without the post on the left
+  kodiak: { file: 'assets/scene-kodiak.jpg', crop: [0, 0, 1264, 738], floor: 0.68, ground: 0.92 }, // without the stray hood at the bottom
 };
 
 // Scales an image to cover a W×H box, centered horizontally and anchored at `ay` (0 top, 1 bottom).
