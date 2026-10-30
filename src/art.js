@@ -41,6 +41,8 @@ export const SCENES = {
   hikari: { file: 'assets/scene-hikari.jpg', crop: [123, 0, 1034, 848], floor: 0.66, ground: 0.9 }, // without the dark side bars
   bulldog: { file: 'assets/scene-bulldog.jpg', crop: [62, 0, 1202, 848], floor: 0.5, ground: 0.86 }, // without the post on the left
   kodiak: { file: 'assets/scene-kodiak.jpg', crop: [0, 0, 1264, 738], floor: 0.68, ground: 0.92 }, // without the stray hood at the bottom
+  valken: { file: 'assets/scene-valken.jpg', floor: 0.6, ground: 0.88 },
+  sora: { file: 'assets/scene-sora.jpg', floor: 0.62, ground: 0.88 },
 };
 
 // Scales an image to cover a W×H box, centered horizontally and anchored at `ay` (0 top, 1 bottom).
