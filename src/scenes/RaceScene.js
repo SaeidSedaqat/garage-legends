@@ -36,8 +36,14 @@ export class RaceScene extends Phaser.Scene {
     this.ai = aiInputs(OPPONENTS[this.event.opp].ai, rand);
     this.o.a0 *= this.ai.form;
     this.oppPlan = plannedShift(this.oSpec, this.ai.shiftQ(0));
-    // the very first race is coached, with a longer lead-in so there's time to read
-    this.guide = !state.tutorial.raced;
+    // the very first race is a driving lesson (so is Practice from the Race menu), with a
+    // longer lead-in so there's time to read
+    this.practice = !!data.practice;
+    this.guide = this.practice || !state.tutorial.raced;
+    this.freeze = false; // the lesson stops the race: 'button', or until a press ('down') or release ('up')
+    this.slow = 1;       // the lesson's slow motion
+    this.step = this.guide ? 'intro' : null;
+    if (this.guide) this.freeze = 'button';
     // countdown: three ambers with ±150 ms jitter so the rhythm can't be memorised (GDD §6.3)
     this.ambers = [];
     let t = (this.guide ? 3 : 1.3) + rand() * 0.3;
@@ -62,7 +68,7 @@ export class RaceScene extends Phaser.Scene {
   create() {
     ui.showRace(this.event, this.pSpec, this.oSpec, {
       down: () => this.down(), up: () => this.up(), pause: () => this.setPaused(true),
-    });
+    }, this.practice);
     this.build();
     this.scale.on('resize', this.build, this);
     this.input.on('pointerdown', () => this.down());
@@ -217,10 +223,17 @@ export class RaceScene extends Phaser.Scene {
 
   update(_, deltaMs) {
     if (this.paused || !this.L) return;
-    const dt = Math.min(deltaMs / 1000, 0.05);
+    if (this.guide) this.lessonUpdate();
+    if (this.freeze) return this.render(0);
+    const dt = Math.min(deltaMs / 1000, 0.05) * this.slow;
     const { p, o, D } = this;
     this.t += dt;
 
+    // in the lesson, green waits until the held needle reaches the middle of the launch band
+    if (this.guide && this.holding && !this.green) {
+      const [lo, hi] = launchBand(p.spec);
+      if (p.rpm < (lo + hi) / 2) this.greenAt = Math.max(this.greenAt, this.t + 0.02);
+    }
     if (!this.green && this.t >= this.greenAt) {
       this.green = true;
       this.phase = 'racing';
@@ -228,6 +241,12 @@ export class RaceScene extends Phaser.Scene {
       if (!this.jumpAt) {
         ui.callout('GO!', 'go');
         ui.raceMsg(this.holding ? 'Release to launch!' : 'Tap to launch!');
+      }
+      // the lesson waits on green for the release
+      if (this.guide && this.holding) {
+        this.freeze = 'up';
+        this.updateTree();
+        return this.render(0);
       }
     }
     this.updateTree();
@@ -262,28 +281,112 @@ export class RaceScene extends Phaser.Scene {
       if (!o.finished && this.doneT > SIM.postFinish) for (let i = 0; i < 40000 && !o.finished; i++) this.stepOpponent(SIM.dt);
       if (o.finished && this.doneT > 1.2) this.finish();
     }
-    if (this.guide) this.coachStep();
     this.render(dt);
   }
 
-  // First-race coaching (GDD §2.3): one short instruction at a time, pointing at the button.
-  coachStep() {
+  // ------------------------------------------------------------ driving lesson
+
+  // The first race and Practice teach the three skills one at a time (GDD §2.3). At each key
+  // moment the race freezes until the player does what's being taught, approaching it in slow
+  // motion, and the rival waits at the line until the player launches. Steps: intro → amber →
+  // rev → shift1 → shift2 → nitro → chain → free.
+  lessonUpdate() {
     const p = this.p, band = launchBand(p.spec), z = zones(p.spec);
-    let text = null;
-    if (!p.launched) {
-      if (this.jumpAt != null) text = 'Too early! Wait for green next time';
-      else if (this.green) text = this.holding ? 'RELEASE now!' : 'Tap now!';
-      else if (this.holding) text = p.rpm < band[0] ? 'Keep holding…' : p.rpm <= band[1] ? 'In the yellow band: hold, release on GREEN' : 'Revving high: release on GREEN';
-      else text = this.t >= this.ambers[0] ? 'Press and HOLD now!' : 'When the yellow lights come on, press and HOLD';
-    } else if (!p.shifts.length && !p.finished) {
-      text = p.rpm >= z.good[0] ? 'SHIFT now!' : 'Wait for the green zone, then tap SHIFT';
-    } else if (topGear(p) && !p.finished && p.nitro > 0) {
-      const chainOpen = p.boost > 0 && p.boost <= SIM.nitro.chainWindow;
-      text = !p.nitros.length ? 'Top gear! Tap NITRO' : chainOpen ? 'Tap now to CHAIN!' : p.boost > 0 ? 'Wait for the flash…' : 'Tap NITRO';
+    const btn = document.getElementById('btn-shift'), tach = document.getElementById('tach');
+    let card = null;
+    for (let guard = 0; guard < 4; guard++) {
+      const step = this.step;
+      card = this.lessonCard(p, band, z, btn, tach);
+      if (this.step === step) break;
     }
-    if (text) ui.coach(document.getElementById('btn-shift'), text);
-    else if (this.coachText) ui.coachOff();
-    this.coachText = text;
+    if (!card) return ui.lesson(null);
+    ui.lesson(card[0], card[1]);
+  }
+
+  // The card for the current step; moves on to the next step when this one is done.
+  lessonCard(p, band, z, btn, tach) {
+    const N = SIM.nitro;
+    switch (this.step) {
+      case 'intro':
+        return [null, {
+          title: 'Driving lesson', frozen: true, button: "Let's go",
+          text: 'Drag racing takes three skills: LAUNCH, SHIFT and NITRO. This race stops at each one and shows you what to do. Your rival waits for you at the line.',
+          onButton: () => { this.freeze = false; this.step = 'amber'; },
+        }];
+      case 'amber':
+        if (this.holding) { this.step = 'rev'; return null; }
+        if (this.t >= this.ambers[0] && !this.freeze) this.freeze = 'down';
+        return [btn, {
+          title: '1/3 · Launch', frozen: !!this.freeze,
+          text: this.freeze ? 'Yellow lights! Press and HOLD the button now.'
+            : this.jumped ? "Too early: letting go before GREEN is a jump start. Again: when the yellow lights come on, press and HOLD."
+              : 'Watch the start lights. When the yellow lights come on, press and HOLD this button.',
+        }];
+      case 'rev':
+        if (p.launched) { this.step = 'shift1'; return null; }
+        if (this.freeze === 'up') return [btn, { title: '1/3 · Launch', text: 'GREEN! Let go of the button NOW.', frozen: true }];
+        return [tach, {
+          title: '1/3 · Launch',
+          text: p.rpm < band[0] ? 'Keep holding. The needle climbs toward the YELLOW band on the rev meter…'
+            : p.rpm <= band[1] ? 'In the yellow band: perfect. Keep holding and wait for the GREEN light…'
+              : "Past the yellow band: the wheels will spin. Next time start holding a bit later. Let go on GREEN.",
+        }];
+      case 'shift1': {
+        if (p.shifts.length) { this.step = 'shift2'; this.slow = 1; return null; }
+        const near = p.rpm >= z.good[0] - 0.15, aim = (z.perfect[0] + z.perfect[1]) / 2;
+        this.slow = near ? 0.35 : 1;
+        if (!this.freeze && p.rpm >= aim && p.shifting <= 0) this.freeze = 'down';
+        if (this.freeze) return [btn, { title: '2/3 · Shift', text: 'The needle is in the GREEN zone. Tap now to SHIFT!', frozen: true }];
+        return [tach, {
+          title: '2/3 · Shift',
+          text: near ? 'Here it comes… the needle is heading for the GREEN zone.'
+            : 'Each gear runs out of revs. You shift up when the needle reaches the GREEN zone on the rev meter.',
+        }];
+      }
+      case 'shift2': {
+        if (topGear(p)) { this.step = 'nitro'; this.slow = 1; return null; }
+        const last = p.shifts[p.shifts.length - 1], limiter = p.shifting <= 0 && p.rpm >= 0.995;
+        this.slow = p.shifting <= 0 && p.rpm >= z.good[0] - 0.08 && !limiter ? 0.6 : 1;
+        return [tach, {
+          title: '2/3 · Shift',
+          text: limiter ? "Shift! You're bouncing off the limiter and losing time."
+            : last === 'early' ? 'That was early: the car bogged down. Wait for the green zone.'
+              : `Now you: shift in the green zone. Its bright middle is a PERFECT shift${last === 'perfect' ? '. Nice!' : '.'}`,
+        }];
+      }
+      case 'nitro':
+        if (p.nitros.length) { this.step = 'chain'; return null; }
+        // wait for the last gear change to finish: nitro can't fire mid-shift
+        if (!this.freeze && p.shifting <= 0) { this.freeze = 'down'; this.lastPress = -1; }
+        return [btn, { title: '3/3 · Nitro', text: 'Top gear: no more shifting. The button is now NITRO. Tap it for a speed burst!', frozen: true }];
+      case 'chain':
+        if (p.finished || p.nitro <= 0 || p.nitros.length > 1) { this.step = 'free'; return null; }
+        if (p.boost > 0 && p.boost <= N.chainWindow && !this.freeze) this.freeze = 'down';
+        return [btn, {
+          title: '3/3 · Nitro', frozen: !!this.freeze,
+          text: this.freeze ? 'It FLASHED! Tap now to CHAIN a bigger burst.'
+            : 'The burst is burning. When the button flashes white, tap again to CHAIN it. Tapping before the flash wastes a charge.',
+        }];
+      default: // free run to the line
+        if (p.finished) return null;
+        if (p.nitro <= 0) return [null, { text: 'Out of nitro. Hold on to the finish!' }];
+        return [btn, {
+          title: 'Nitro',
+          text: p.nitros[p.nitros.length - 1] === 'early' ? 'Wasted! Wait for the white flash before you tap.' : 'Keep chaining: tap on every flash to the line!',
+        }];
+    }
+  }
+
+  // Letting go before green in the lesson restarts the countdown instead of a jump start.
+  lessonJump() {
+    const d = this.t + 1.5 - this.ambers[0];
+    this.ambers = this.ambers.map(a => a + d);
+    this.greenAt += d;
+    this.beeps = -1;
+    this.jumped = true;
+    this.step = 'amber';
+    sfx.red();
+    ui.callout('TOO EARLY', 'foul');
   }
 
   stepOpponent(h) {
@@ -397,6 +500,14 @@ export class RaceScene extends Phaser.Scene {
   // One input for everything (GDD §10.7): hold to rev, release to launch, tap to shift.
   down() {
     if (this.paused || this.phase === 'done') return;
+    if (this.freeze === 'button') return document.querySelector('.lesson-btn')?.click();
+    // the lesson waits on green for a release; a fresh tap (say after a pause) counts too
+    if (this.freeze === 'up') {
+      this.freeze = false;
+      this.holding = false;
+      return this.launchPlayer(false);
+    }
+    if (this.freeze === 'down') this.freeze = false;
     const p = this.p;
     if (!p.launched) {
       if (this.jumpAt == null) {
@@ -434,9 +545,11 @@ export class RaceScene extends Phaser.Scene {
 
   up() {
     if (!this.holding) return;
+    if (this.freeze === 'up') this.freeze = false;
     this.holding = false;
     if (this.paused || this.p.launched) return;
     if (this.green) return this.launchPlayer(false);
+    if (this.guide) return this.lessonJump();
     // released before green: a cozy jump start holds the car for a moment (GDD §6.3)
     this.jumpAt = this.greenAt + SIM.jumpHold;
     sfx.red();
@@ -474,7 +587,7 @@ export class RaceScene extends Phaser.Scene {
     ui.hideModal();
     platform.gameplayStop();
     state.stats.races++; // an abandoned attempt still advances the seed
-    this.scene.restart({ eventId: this.event.id });
+    this.scene.restart({ eventId: this.event.id, practice: this.practice });
   }
 
   // ------------------------------------------------------------ result
@@ -488,12 +601,21 @@ export class RaceScene extends Phaser.Scene {
     const won = p.finishTime <= o.finishTime + 0.001;
     // the guide repeats until the first win
     if (this.guide) {
-      if (won) state.tutorial.raced = true;
+      if (won && !this.practice) state.tutorial.raced = true;
       ui.coachOff();
     }
     // longest run of linked bursts: a burst plus every chain fired straight after it
     let chain = 0, run = 0;
     for (const q of p.nitros) { run = q === 'chain' ? run + 1 : q === 'boost' ? 1 : run; chain = Math.max(chain, run); }
+    // practice pays nothing and records nothing: just how each skill went
+    if (this.practice) {
+      sfx.win();
+      ui.showPracticeDone({ launch: p.launchLabel, reaction: p.reaction, shifts: p.shifts, nitros: p.nitros }, {
+        again: () => this.scene.restart({ eventId: event.id, practice: true }),
+        garage: () => this.scene.start('garage'),
+      });
+      return;
+    }
     const res = recordRace(event, won, p.finishTime, p.shifts.filter(s => s === 'perfect').length, {
       perfectLaunch: p.launchLabel === 'perfect', chain, behind: this.maxBehind, margin: o.finishTime - p.finishTime,
       flawless: p.shifts.length > 0 && p.shifts.every(s => s === 'perfect'),

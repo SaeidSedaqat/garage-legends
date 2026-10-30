@@ -32,53 +32,63 @@ export const ART = {
 export const CARS = [
   {
     id: 'kaze', tier: 1, name: 'Kaze Hatch', tagline: 'Simple, reliable, ready for the journey.', niche: 'Forgiving starter',
-    price: 0, stats: { launch: 12, accel: 12, topSpeed: 10, shiftWindow: 0.75, gears: 4 }, upgradeBase: 3, redlineRpm: 6800,
+    price: 0, stats: { launch: 12, accel: 12, topSpeed: 10, shiftWindow: 0.75, gears: 4 }, upgradeBase: 15, redlineRpm: 6800,
     art: 'kaze',
+    parts: ['engine', 'tires', 'exhaust', 'gearbox'],
   },
   {
     id: 'ronin', tier: 2, name: 'Ronin Compact', tagline: 'A classic with real character.', niche: 'Very easy to drive',
-    price: 500, stats: { launch: 15, accel: 16, topSpeed: 14, shiftWindow: 0.8, gears: 4 }, upgradeBase: 12, redlineRpm: 8200,
+    price: 500, stats: { launch: 15, accel: 16, topSpeed: 14, shiftWindow: 0.8, gears: 4 }, upgradeBase: 24, redlineRpm: 8200,
     art: 'ronin',
+    parts: ['engine', 'tires', 'ecu', 'gearbox'],
   },
   {
     id: 'hikari', tier: 3, name: 'Hikari Coupe', tagline: 'Balance, style and control.', niche: 'Balanced tuner',
-    price: 4000, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 37, redlineRpm: 7500,
+    price: 2500, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 90, redlineRpm: 7500,
     art: 'hikari',
+    parts: ['engine', 'turbo', 'tires', 'gearbox'],
   },
   {
     id: 'bulldog', tier: 4, name: "Bulldog '70", tagline: 'Raw power and timeless appeal.', niche: 'Huge mid-range punch, wheelspin-prone launch',
-    price: 8000, stats: { launch: 24, accel: 32, topSpeed: 30, shiftWindow: 0.62, gears: 4 }, upgradeBase: 100, redlineRpm: 6200,
+    price: 8000, stats: { launch: 24, accel: 32, topSpeed: 30, shiftWindow: 0.62, gears: 4 }, upgradeBase: 200, redlineRpm: 6200,
     launchQuirk: 'wheelspin', art: 'ronin', tint: [28, 1.15, 1.05],
+    parts: ['bigblock', 'supercharger', 'slicks', 'gearbox'],
   },
   {
     id: 'kodiak', tier: 5, name: 'Kodiak Rally', tagline: 'Built for grip, not just straight lines.', niche: 'Best launch for its tier, rules the quarter mile',
-    price: 18000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 280, redlineRpm: 7800,
+    price: 18000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 400, redlineRpm: 7800,
     art: 'kaze', tint: [12, 1.5, 0.72],
+    parts: ['engine', 'turbo', 'awd', 'gearbox'],
   },
   {
     id: 'valken', tier: 6, name: 'Valken GT', tagline: 'Power, precision, all around.', niche: 'All-rounder, strong at the half mile',
-    price: 40000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 700, redlineRpm: 7600,
+    price: 40000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 1000, redlineRpm: 7600,
     art: 'hikari', tint: [0, 0.12, 1.2],
+    parts: ['engine', 'aero', 'tires', 'nitrous'],
   },
   {
     id: 'sora', tier: 7, name: 'Sora Roadster', tagline: 'Lightweight fun, maximum feel.', niche: 'Widest shift window, the easiest perfect runs',
-    price: 120000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 1850, redlineRpm: 8000,
+    price: 120000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 3000, redlineRpm: 8000,
     art: 'ronin', tint: [48, 1.2, 1.15],
+    parts: ['engine', 'weight', 'tires', 'gearbox'],
   },
   {
     id: 'furia', tier: 8, name: 'Furia V10', tagline: "Speed isn't a dream anymore.", niche: 'Top-speed monster, demanding shifts',
-    price: 220000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 4600, redlineRpm: 8500,
+    price: 220000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 7500, redlineRpm: 8500,
     art: 'hikari', tint: [-85, 1.5, 1.2],
+    parts: ['engine', 'aero', 'slicks', 'seqbox'], partNames: { engine: 'V10 Tune' },
   },
   {
     id: 'volta', tier: 9, name: 'Volta X', tagline: "The edge of what's possible.", niche: 'Mile specialist',
     price: 1000000, stats: { launch: 86, accel: 90, topSpeed: 94, shiftWindow: 0.7, gears: 7 }, upgradeBase: 11500, redlineRpm: 9000,
     art: 'hikari', tint: [0, 0.08, 1.55],
+    parts: ['motor', 'battery', 'tires', 'gearbox'], partNames: { gearbox: 'Drive Unit' },
   },
   {
     id: 'apex', tier: 10, name: 'Apex Zero', tagline: 'A machine for the few.', niche: 'The ultimate',
     price: 2500000, requires: 'city_5', stats: { launch: 96, accel: 100, topSpeed: 100, shiftWindow: 0.76, gears: 7 }, upgradeBase: 25000, redlineRpm: 9500,
     art: 'hikari', tint: [0, 0.3, 0.42],
+    parts: ['engine', 'hybrid', 'aero', 'seqbox'],
   },
 ];
 
@@ -137,11 +147,11 @@ export const OPPONENTS = {
 // suggests): rewards are 40% (Countryside), 60% (Coastal) and 37.5% (City) of the GDD table,
 // and some car prices and Click Power costs moved too (see README).
 export const EVENTS = [
-  { id: 'country_1', env: 'countryside', name: 'First Run', dist: 'quarter', opp: 'rusty', rec: 90, win: 16, first: 24 },
-  { id: 'country_2', env: 'countryside', name: 'Local Rival', dist: 'quarter', opp: 'dusty', rec: 120, win: 28, first: 40 },
-  { id: 'country_3', env: 'countryside', name: 'Weekend Challenge', dist: 'quarter', opp: 'mira', rec: 150, win: 48, first: 72 },
-  { id: 'country_4', env: 'countryside', name: 'Long Straight', dist: 'half', opp: 'hank', rec: 190, win: 80, first: 120 },
-  { id: 'country_5', env: 'countryside', name: 'Countryside Champion', dist: 'half', opp: 'fox', rec: 230, win: 140, first: 240, champion: 1000 },
+  { id: 'country_1', env: 'countryside', name: 'First Run', dist: 'quarter', opp: 'rusty', rec: 90, win: 32, first: 48 },
+  { id: 'country_2', env: 'countryside', name: 'Local Rival', dist: 'quarter', opp: 'dusty', rec: 120, win: 56, first: 80 },
+  { id: 'country_3', env: 'countryside', name: 'Weekend Challenge', dist: 'quarter', opp: 'mira', rec: 150, win: 96, first: 144 },
+  { id: 'country_4', env: 'countryside', name: 'Long Straight', dist: 'half', opp: 'hank', rec: 190, win: 160, first: 240 },
+  { id: 'country_5', env: 'countryside', name: 'Countryside Champion', dist: 'half', opp: 'fox', rec: 230, win: 280, first: 480, champion: 2000 },
   { id: 'coast_1', env: 'coastal', name: 'Coastal Debut', dist: 'quarter', opp: 'sol', rec: 280, win: 360, first: 600 },
   { id: 'coast_2', env: 'coastal', name: 'Seaside Rival', dist: 'half', opp: 'marina', rec: 330, win: 600, first: 960 },
   { id: 'coast_3', env: 'coastal', name: 'Cliffside Challenge', dist: 'half', opp: 'rocco', rec: 400, win: 1020, first: 1500 },
@@ -192,20 +202,42 @@ export const LEGEND = {
 
 // ---------------------------------------------------------------- upgrades (GDD §8)
 
-// Car upgrades: +3% to one stat per level, levels 0–10. Cost = upgradeBase × weight × 1.35^level.
-export const CAR_UPGRADES = {
-  engine: { name: 'Engine', icon: 'engine', stat: 'accel', weight: 1, desc: 'Acceleration in every gear.' },
-  turbo: { name: 'Turbo', icon: 'turbo', stat: 'topSpeed', weight: 1.5, desc: 'More top speed.', needs: { engine: 3 } },
-  tires: { name: 'Tires', icon: 'tire', stat: 'launch', weight: 1, desc: 'Launch grip and a wider launch band.' },
-  trans: { name: 'Transmission', icon: 'gear', stat: null, weight: 1.25, desc: 'Wider shift zones, quicker shifts.', needs: { engine: 1 } },
+// Every car has its own four parts (`parts` in CARS), picked from this library. Each level adds
+// PART_STEP × `fx` to the stats it names: `launch`, `accel`, `topSpeed` (+7.5% per level at fx 1),
+// `shift` (wider shift zones, quicker shifts), `grip` (wider launch band), `nitro` (stronger
+// nitro bursts). Levels 1–PART_LEVELS; level n costs upgradeBase × `cost` × PART_GROWTH^(n-1).
+// Each car's four parts together add about +30% PR at full tune.
+export const PARTS = {
+  engine: { name: 'Engine', icon: 'engine', desc: 'Acceleration in every gear.', fx: { accel: 1 }, cost: 1 },
+  bigblock: { name: 'Big-Block V8', icon: 'engine', desc: 'Brutal mid-range acceleration.', fx: { accel: 1.1 }, cost: 1.1 },
+  turbo: { name: 'Turbo', icon: 'turbo', desc: 'More top speed.', fx: { topSpeed: 1 }, cost: 1.2, needs: ['engine', 2] },
+  supercharger: { name: 'Supercharger', icon: 'turbo', desc: 'Instant boost: acceleration and launch.', fx: { accel: 0.6, launch: 0.5 }, cost: 1.15 },
+  tires: { name: 'Tires', icon: 'tire', desc: 'Launch grip and a wider launch band.', fx: { launch: 1, grip: 1 }, cost: 0.8 },
+  slicks: { name: 'Drag Slicks', icon: 'tire', desc: 'Huge launch grip, tames wheelspin.', fx: { launch: 1.2, grip: 1.5 }, cost: 1 },
+  awd: { name: 'AWD System', icon: 'awd', desc: 'All four wheels bite at launch.', fx: { launch: 1.2, grip: 1 }, cost: 1 },
+  gearbox: { name: 'Gearbox', icon: 'gear', desc: 'Wider shift zones, quicker shifts.', fx: { shift: 1 }, cost: 0.9 },
+  seqbox: { name: 'Sequential Box', icon: 'gear', desc: 'Lightning shifts, much wider zones.', fx: { shift: 1.3 }, cost: 1 },
+  exhaust: { name: 'Exhaust', icon: 'exhaust', desc: 'Breathes better: acceleration and top speed.', fx: { accel: 0.5, topSpeed: 0.5 }, cost: 1 },
+  ecu: { name: 'ECU Tune', icon: 'chip', desc: 'A little more of everything.', fx: { launch: 0.4, accel: 0.4, topSpeed: 0.4 }, cost: 1.1 },
+  aero: { name: 'Aero Kit', icon: 'wing', desc: 'Cuts drag for more top speed.', fx: { topSpeed: 1 }, cost: 1 },
+  weight: { name: 'Weight Cut', icon: 'feather', desc: 'Lighter: acceleration and launch.', fx: { accel: 0.5, launch: 0.5 }, cost: 0.95 },
+  nitrous: { name: 'Nitrous Kit', icon: 'bottle', desc: 'Stronger nitro bursts.', fx: { nitro: 1, accel: 0.2 }, cost: 1 },
+  motor: { name: 'Twin Motors', icon: 'bolt', desc: 'Instant torque: acceleration and launch.', fx: { accel: 1, launch: 0.4 }, cost: 1.2 },
+  battery: { name: 'Power Cells', icon: 'battery', desc: 'Top speed and stronger nitro.', fx: { topSpeed: 1, nitro: 0.6 }, cost: 1.2 },
+  hybrid: { name: 'Hybrid Boost', icon: 'bolt', desc: 'Electric shove: acceleration and nitro.', fx: { accel: 0.5, nitro: 1 }, cost: 1.1 },
 };
-export const MAX_LEVEL = 10;
-export const PER_LEVEL = 0.03;
+export const PART_LEVELS = 4;
+export const PART_STEP = 0.075;
+export const PART_GROWTH = 1.8;
+export const PART_COST = 4; // × each car's upgradeBase
+export const NITRO_STEP = 0.125; // nitro burst strength per level at fx 1 (+50% at full tune)
 
-export const CLICK_BASE = [1, 2, 3, 5, 8, 12, 18, 27, 40, 60, 90];
-export const CLICK_COST = [null, 20, 90, 320, 900, 2500, 6000, 15000, 40000, 110000, 300000];
-export const AUTO_CPS = [0, 0.2, 0.4, 0.7, 1, 1.4, 1.9, 2.5, 3.2, 4, 5];
-export const AUTO_COST = [null, 300, 1200, 4000, 12000, 35000, 90000, 220000, 500000, 1100000, 2400000];
+// Garage upgrades: few, big steps. Index = level.
+export const GARAGE_LEVELS = 5;
+export const CLICK_BASE = [1, 3, 8, 20, 50, 110];
+export const CLICK_COST = [null, 200, 1200, 9000, 45000, 200000];
+export const AUTO_CPS = [0, 0.5, 1.2, 2.2, 3.5, 5];
+export const AUTO_COST = [null, 1500, 12000, 70000, 300000, 1200000];
 export const AUTO_UNLOCK = 'country_2';
 
 export const CRIT = { chance: 0.04, mult: 5 };
@@ -244,9 +276,9 @@ export const ACHIEVEMENTS = [
   { id: 'comeback', name: 'Comeback Kid', desc: 'Win after trailing by half a second', track: 'comebacks', goal: 1, reward: 400 },
   { id: 'champ_country', name: 'Country Champ', desc: 'Win Countryside Champion', track: 'country_5', goal: 1, reward: 300 },
   { id: 'flawless', name: 'Flawless', desc: 'Win with every shift perfect', track: 'flawlessWins', goal: 1, reward: 300 },
-  { id: 'auto_5', name: 'Crew Chief', desc: 'Garage Automation level 5', track: 'automation', goal: 5, reward: 3000 },
+  { id: 'auto_5', name: 'Crew Chief', desc: 'Max out Garage Automation', track: 'automation', goal: 5, reward: 3000 },
   { id: 'perfect_100', name: 'Gearhead', desc: 'Make 100 perfect shifts', track: 'perfectShifts', goal: 100, reward: 3000 },
-  { id: 'max_upgrade', name: 'Maxed Out', desc: 'Take any upgrade to level 10', track: 'maxLevel', goal: 10, reward: 150 },
+  { id: 'max_upgrade', name: 'Maxed Out', desc: 'Max out any car part', track: 'maxLevel', goal: PART_LEVELS, reward: 150 },
   { id: 'cars_6', name: 'Showroom', desc: 'Own 6 cars', track: 'cars', goal: 6, reward: 6000 },
   { id: 'champ_coast', name: 'Coast Champ', desc: 'Win Coastal Champion', track: 'coast_5', goal: 1, reward: 5000 },
   { id: 'millionaire', name: 'Millionaire', desc: 'Earn $1M in total', track: 'earned', goal: 1e6, reward: 50000 },

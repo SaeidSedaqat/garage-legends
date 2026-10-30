@@ -14,8 +14,14 @@ Close the black window to stop it.
 
 - **Garage:** tap your car to earn cash (4% chance of a ×5 critical). A Golden Wrench appears every
   1–2 minutes: tap it for 30× a tap.
-- **Upgrades:** per car — Engine, Turbo (after Engine 3), Tires, Transmission (after Engine 1).
-  Garage-wide — Click Power and Automation (after winning Local Rival).
+- **Upgrades** sit beside the car in the garage: tap one to buy its next level.
+  - Left: the car's own four parts. Every car has its own set, e.g. the Bulldog has a Big-Block
+    V8, Supercharger, Drag Slicks and Gearbox, and the Volta X has Twin Motors and Power Cells.
+    Each part has 4 levels; together they add about 30% PR. Gearbox parts widen the shift zones,
+    tires and slicks widen the launch band, and nitrous, battery and hybrid parts make nitro
+    stronger.
+  - Right: Tap Power and Pit Crew (5 levels each; the crew unlocks after winning Local Rival),
+    plus Reputation (stars and garage decor).
 - **Race:** hold the button (or Space) when the amber lights start so the needle sits in the yellow
   launch band, then release on GREEN. Releasing early is a jump start. Tap to shift when the
   needle is in the green zone. The gearing is set per race distance, so shifts come through
@@ -32,7 +38,11 @@ Close the black window to stop it.
   the Apex Zero and the endless **Legend Series**.
 - **Before each race** a matchup screen shows your car against the rival, the recommended PR and
   the reward, and lets you change car.
-- **First session:** a short guide points at the first upgrade and coaches the first race.
+- **Driving lesson:** the first race teaches launch, shifting and nitro one step at a time.
+  At each key moment the race freezes, slow motion leads into it, and it waits until you do
+  the move. Jump starts restart the countdown. Replay it any time with **Practice** in the Race
+  menu: no rewards, and a summary of how each skill went.
+- **First session:** a short guide points at the first upgrade.
 - **Settings** (gear icon): sound, reduce motion, KM/H (default) or MPH, stats, reset progress.
 
 Progress saves automatically in the browser (localStorage). Automation keeps earning at half rate
@@ -42,7 +52,8 @@ while you're away (up to 2 hours).
 
 | File | What it does |
 |---|---|
-| `src/data.js` | All cars, events, opponents, upgrades, economy and sim constants — tune the game here |
+| `src/data.js` | All cars, their parts, events, opponents, economy and sim constants — tune the game here |
+| `src/tuning.js` | What a car's parts do to its stats and what the next level costs |
 | `src/physics.js` | The race simulation (GDD §6.9) and AI driver; no Phaser, so it runs headless |
 | `src/state.js` | Money, upgrades, stars, progression, saving and save migration |
 | `src/art.js` | Cuts sprites out of their magenta backgrounds, placeholder recolors, mockup crops |
@@ -78,15 +89,23 @@ replays its best event when that beats tapping. At 2 taps/s it hits the GDD §9.
 
 | Milestone | Target | Bot (1.5 / 2 / 2.5 taps/s) |
 |---|---|---|
-| Car 2 | 4–6 min | 6 / 5 / 4 min |
-| Car 3 | 12–18 min | 18 / 14 / 12 min |
-| Countryside Champion | 15–25 min | 18 / 15 / 13 min |
-| City unlocked (Coastal Champion) | 70–90 min | 98 / 90 / 85 min |
-| City Champion | 3–3.5 h | 3h13 / 3h05 / 3h00 |
+| Car 2 | 4–6 min | 8 / 6 / 5 min |
+| Car 3 | 12–18 min | 24 / 19 / 16 min |
+| Countryside Champion | 15–25 min | 25 / 20 / 17 min |
+| City unlocked (Coastal Champion) | 70–90 min | 98 / 84 / 75 min |
+| City Champion | 3–3.5 h | 3h13 / 3h01 / 2h52 |
 
-To get there, race rewards are 40% / 60% / 37.5% of the GDD table (Countryside / Coastal / City),
-and some prices moved: Hikari $4,000, Kodiak $18,000, Valken $40,000, Sora $120,000,
-Furia $220,000, Click Power levels 1–7 a little dearer.
+Purchases are few and each one is worth saving for. The bot makes about 91 purchases on the way
+to City Champion. Each one costs a median of about 80 seconds of its income at the time, and
+almost none cost under 20 seconds. The first upgrade costs $60 (about 30 s of tapping).
+`pacing()` returns every purchase with its cost in seconds of income, and `carGains()` checks
+that every car's parts add about +30% PR.
+
+To get there:
+- Race rewards are 80% / 60% / 37.5% of the GDD table (Countryside / Coastal / City).
+- Car prices: Hikari $2,500, Kodiak $18,000, Valken $40,000, Sora $120,000, Furia $220,000.
+- Part prices are set per car (`upgradeBase`).
+- Tap Power and Pit Crew have 5 levels, with bigger steps than before.
 
 ## Placeholders
 

@@ -20,6 +20,7 @@ export class GarageScene extends Phaser.Scene {
         if (what === 'car') this.makeCar();
         if (what === 'race') { this.buildDecor(); this.placeCar(false); }
       }),
+      bus.on('upgraded', u => this.installFx(u)),
     ];
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.build, this);
@@ -98,7 +99,7 @@ export class GarageScene extends Phaser.Scene {
     const f = ui.garageFocus(true);
     const visible = ui.garageFocus();
     // never wider than the art itself, so the car stays sharp
-    const w = Math.min(Math.min(f.w * (f.w < f.h ? 0.86 : 0.6), f.h * 1.4) * DPR, this.car.m.w);
+    const w = Math.min(Math.min(f.w * 0.94, f.h * 1.4) * DPR, this.car.m.w);
     const x = (f.x + f.w / 2) * DPR + w / 2;
     const y = Math.max(this.floorY + w * 0.2, Math.min(this.groundY, (f.y + f.h) * DPR - 4 * DPR));
     const scrollY = Math.max(0, y + 16 * DPR - (visible.y + visible.h) * DPR);
@@ -158,6 +159,26 @@ export class GarageScene extends Phaser.Scene {
     this.squash?.stop();
     this.car.c.setScale(1);
     this.squash = this.tweens.add({ targets: this.car.c, scaleY: 0.95, scaleX: 1.015, duration: 70, yoyo: true, ease: 'Quad.easeOut' });
+  }
+
+  // A bought upgrade: a wrench spins on the car, sparks fly and the gain floats up.
+  installFx({ name, lvl, gain }) {
+    if (!this.car) return;
+    const c = this.car.c, w = this.car.w, h = (this.car.m.h * w) / this.car.m.w;
+    const x = c.x - w / 2, y = c.y - h * 0.55;
+    this.popup(x, y - h * 0.2, `${name} Lv ${lvl}${gain > 0 ? `  +${gain} PR` : ''}`, true);
+    if (state.reducedMotion) return;
+    const r = 30 * DPR, wrench = this.add.image(x, y, 'wrench').setDisplaySize(r * 2, r * 2).setDepth(6);
+    this.tweens.add({ targets: wrench, angle: 360, scale: { from: wrench.scale * 0.4, to: wrench.scale * 1.2 }, alpha: { from: 1, to: 0 }, duration: 650, ease: 'Cubic.easeOut', onComplete: () => wrench.destroy() });
+    for (let i = 0; i < 16; i++) {
+      const spark = this.add.rectangle(x, y, 3 * DPR, (8 + Math.random() * 8) * DPR, i % 3 ? 0xffd75a : 0xffffff).setDepth(6).setBlendMode(Phaser.BlendModes.ADD);
+      const a = Math.random() * Math.PI * 2, d = (50 + Math.random() * 70) * DPR;
+      spark.rotation = a + Math.PI / 2;
+      this.tweens.add({ targets: spark, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, alpha: 0, duration: 400 + Math.random() * 250, ease: 'Cubic.easeOut', onComplete: () => spark.destroy() });
+    }
+    this.squash?.stop();
+    c.setScale(1);
+    this.squash = this.tweens.add({ targets: c, scaleY: 1.04, scaleX: 0.98, duration: 110, yoyo: true, repeat: 1, ease: 'Quad.easeOut' });
   }
 
   // ------------------------------------------------------------ Golden Wrench (GDD §9.3)

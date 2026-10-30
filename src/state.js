@@ -1,17 +1,17 @@
 // Player progress, economy rules and saving (GDD §8, §9, §13).
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, CAR_UPGRADES, MAX_LEVEL, PER_LEVEL, CLICK_BASE, CLICK_COST, AUTO_CPS,
+  CARS, EVENTS, ENVS, OPPONENTS, PARTS, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, CLICK_COST, AUTO_CPS,
   AUTO_COST, AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND, ACHIEVEMENTS,
 } from './data.js';
 import { pr } from './physics.js';
+import { blankTune, partCost, partLock, tuned } from './tuning.js';
 import { bus } from './events.js';
 
 const KEY = 'garageLegends.save.v2';
 const PROTOTYPE_KEY = 'garageLegends.save.v1';
 const CLICKS_PER_SECOND_CAP = 15;
 
-const blankTune = () => ({ engine: 0, turbo: 0, tires: 0, trans: 0 });
-const level = n => Math.min(MAX_LEVEL, Math.max(0, Math.floor(+n || 0)));
+const level = (n, max) => Math.min(max, Math.max(0, Math.floor(+n || 0)));
 
 export const carDef = id => CARS.find(c => c.id === id);
 const LEGEND_ID = /^legend_(\d+)$/;
@@ -21,7 +21,7 @@ const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motio
 
 function fresh() {
   return {
-    v: 2, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune() },
+    v: 3, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune(carDef('kaze')) },
     clickPower: 0, automation: 0, events: {}, milestones: [], tutorial: {}, legend: { round: 1, best: 0 }, achievements: {},
     stats: {
       clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0,
@@ -41,9 +41,10 @@ function migratePrototype(old) {
     if (!carDef(id)) continue;
     if (!s.owned.includes(id)) s.owned.push(id);
     const t = old.tune?.[id] || {};
-    s.tune[id] = { engine: level(t.engine), turbo: 0, tires: level(t.tires), trans: level(t.gearbox) };
+    s.tune[id] = { engine: t.engine, tires: t.tires, trans: t.gearbox };
   }
   if (s.owned.includes(old.car)) s.car = old.car;
+  s.v = 2; // old part levels: converted in validate()
   s.clickPower = Math.min(3, Math.floor((old.click || 0) / 4));
   s.automation = 0;
   const map = { quarter: 'country_1', half: 'country_2', mile: 'country_3' };
@@ -52,17 +53,34 @@ function migratePrototype(old) {
   return s;
 }
 
+// Saves before v3 had the same four upgrades on every car (engine/turbo/tires/trans, levels
+// 0–10) and 10-level garage upgrades. Each of a car's own parts takes over the old upgrade
+// closest to what it does, at the same share of the new level range (rounded up).
+function migrateParts(s) {
+  const scale = (n, max) => Math.ceil((level(n, 10) * max) / 10);
+  const oldKey = fx => (fx.shift ? 'trans' : (fx.launch || 0) > (fx.accel || 0) ? 'tires' : (fx.topSpeed || 0) > (fx.accel || 0) ? 'turbo' : 'engine');
+  for (const id of Object.keys(s.tune || {})) {
+    if (!carDef(id)) continue;
+    const old = s.tune[id] || {};
+    s.tune[id] = Object.fromEntries(carDef(id).parts.map(p => [p, scale(old[oldKey(PARTS[p].fx)], PART_LEVELS)]));
+  }
+  s.clickPower = scale(s.clickPower, GARAGE_LEVELS);
+  s.automation = scale(s.automation, GARAGE_LEVELS);
+}
+
 // Fills missing fields, clamps numbers and drops unknown ids, so a damaged save can't crash the game.
 function validate(raw) {
   const s = { ...fresh(), ...raw };
   s.cash = Math.max(0, Math.floor(+s.cash || 0));
   s.owned = ['kaze', ...(s.owned || []).filter(id => id !== 'kaze' && carDef(id))];
+  if (!(s.v >= 3)) migrateParts(s);
+  s.v = 3;
   const tune = {};
-  for (const id of s.owned) tune[id] = Object.fromEntries(Object.keys(blankTune()).map(k => [k, level(s.tune?.[id]?.[k])]));
+  for (const id of s.owned) tune[id] = Object.fromEntries(carDef(id).parts.map(k => [k, level(s.tune?.[id]?.[k], PART_LEVELS)]));
   s.tune = tune;
   if (!s.owned.includes(s.car)) s.car = 'kaze';
-  s.clickPower = level(s.clickPower);
-  s.automation = level(s.automation);
+  s.clickPower = level(s.clickPower, GARAGE_LEVELS);
+  s.automation = level(s.automation, GARAGE_LEVELS);
   const events = {};
   for (const [id, e] of Object.entries(s.events || {})) {
     if (EVENTS.some(x => x.id === id)) events[id] = { won: !!e.won, stars: Math.min(3, Math.max(0, e.stars | 0)), best: e.best > 0 ? e.best : null };
@@ -126,42 +144,19 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) save(
 
 // ---------------------------------------------------------------- cars and upgrades
 
-// A car's racing stats after its upgrades, as the sim reads them.
-export function tunedSpec(id = state.car) {
-  const c = carDef(id), t = state.tune[id] || blankTune();
-  return {
-    ...c.stats,
-    launch: c.stats.launch * (1 + PER_LEVEL * t.tires),
-    accel: c.stats.accel * (1 + PER_LEVEL * t.engine),
-    topSpeed: c.stats.topSpeed * (1 + PER_LEVEL * t.turbo),
-    tires: t.tires, trans: t.trans, quirk: c.launchQuirk,
-  };
-}
+// A car's racing stats after its parts, as the sim reads them.
+export const tunedSpec = (id = state.car) => tuned(carDef(id), state.tune[id]);
 export const carPR = id => pr(tunedSpec(id));
 export const stockPR = id => pr(carDef(id).stats);
 
-// Stats with one more level of an upgrade, for the "PR 224 → 227" preview.
-export function previewSpec(cat, id = state.car) {
-  const t = state.tune[id];
-  t[cat]++;
-  const s = tunedSpec(id);
-  t[cat]--;
-  return s;
+// Stats with one more level of a part, for the "PR 224 → 231" preview.
+export function previewSpec(part, id = state.car) {
+  return tuned(carDef(id), { ...state.tune[id], [part]: state.tune[id][part] + 1 });
 }
 
-const roundNice = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
-
-export const upgradeLevel = (cat, id = state.car) => state.tune[id][cat];
-export function upgradeCost(cat, id = state.car) {
-  const lvl = upgradeLevel(cat, id);
-  return lvl >= MAX_LEVEL ? null : roundNice(carDef(id).upgradeBase * CAR_UPGRADES[cat].weight * Math.pow(1.35, lvl));
-}
-export function upgradeLock(cat, id = state.car) {
-  const needs = CAR_UPGRADES[cat].needs;
-  if (!needs) return null;
-  const [dep, lvl] = Object.entries(needs)[0];
-  return upgradeLevel(dep, id) >= lvl ? null : `Needs ${CAR_UPGRADES[dep].name} Lv ${lvl}`;
-}
+export const upgradeLevel = (part, id = state.car) => state.tune[id][part];
+export const upgradeCost = (part, id = state.car) => partCost(carDef(id), part, upgradeLevel(part, id));
+export const upgradeLock = (part, id = state.car) => partLock(carDef(id), state.tune[id], part);
 
 function spend(n) {
   if (state.cash < n) return false;
@@ -169,10 +164,11 @@ function spend(n) {
   return true;
 }
 
-export function buyUpgrade(cat) {
-  const cost = upgradeCost(cat);
-  if (cost == null || upgradeLock(cat) || !spend(cost)) return false;
-  state.tune[state.car][cat]++;
+export function buyUpgrade(part) {
+  if (!(part in state.tune[state.car])) return false;
+  const cost = upgradeCost(part);
+  if (cost == null || upgradeLock(part) || !spend(cost)) return false;
+  state.tune[state.car][part]++;
   state.tutorial.upgraded = true;
   changed('upgrade');
   return true;
@@ -184,7 +180,7 @@ export function buyCar(id) {
   const c = carDef(id);
   if (state.owned.includes(id) || carLock(id) || !spend(c.price)) return false;
   state.owned.push(id);
-  state.tune[id] = blankTune();
+  state.tune[id] = blankTune(c);
   state.car = id;
   changed('car');
   return true;
@@ -248,7 +244,7 @@ const wonEvent = id => +!!state.events[id]?.won;
 const PROGRESS = {
   cars: () => state.owned.length,
   automation: () => state.automation,
-  maxLevel: () => Math.max(state.clickPower, state.automation, ...Object.values(state.tune).flatMap(t => Object.values(t))),
+  maxLevel: () => Math.max(0, ...Object.values(state.tune).flatMap(t => Object.values(t))),
   earned: () => state.stats.fromClicks + state.stats.fromRaces + state.stats.fromAuto,
   stars: () => totalStars(),
   legend: () => state.legend.best,

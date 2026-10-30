@@ -41,7 +41,7 @@ const vMaxOf = spec => (90 + 1.6 * spec.topSpeed) * 0.44704;
 // curve (a few passes, since shifting changes the curve); the engine's power is unchanged.
 const gearCache = new Map();
 function gearEnds(spec, distance) {
-  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${distance}|${SIM.lastShiftAt}`;
+  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${spec.nitroPower || 0}|${distance}|${SIM.lastShiftAt}`;
   if (!gearCache.has(key)) {
     const n = spec.gears, vMax = vMaxOf(spec), shiftAt = plannedShift(spec, 'good').rpm;
     let ends = null;
@@ -194,7 +194,7 @@ export function step(r, dt, distance) {
   // drag eases the car back down to its normal top speed
   let vMax = r.vMax;
   if (r.boost > 0) {
-    const N = SIM.nitro, k = r.boostMult;
+    const N = SIM.nitro, k = r.boostMult * (1 + (s.nitroPower || 0));
     vMax *= 1 + (N.speed - 1) * k;
     mult *= 1 + (N.force - 1) * k;
     r.boost -= dt;

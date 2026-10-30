@@ -6,10 +6,11 @@ import {
   envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave, achievementProgress,
 } from './state.js';
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, DIST, CAR_UPGRADES, MAX_LEVEL, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
+  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, GARAGE_LEVELS, CLICK_BASE, AUTO_CPS, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
   ACHIEVEMENTS,
 } from './data.js';
 import { pr, zones, launchBand } from './physics.js';
+import { partName } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
 import { carPreview } from './art.js';
@@ -46,19 +47,25 @@ const ICONS = {
   cross: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
   star: '<svg viewBox="0 0 24 24"><path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
   trophy: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
+  awd: svg('<rect x="3" y="3" width="4" height="6" rx="1"/><rect x="17" y="3" width="4" height="6" rx="1"/><rect x="3" y="15" width="4" height="6" rx="1"/><rect x="17" y="15" width="4" height="6" rx="1"/><path d="M7 6h10M7 18h10M12 6v12"/>'),
+  exhaust: svg('<path d="M2 14h11l3-3h4v6h-4l-3-3"/><path d="M20 9c1-1 1-2 0-3M22 9c1.3-1.5 1.3-3 0-4.5"/>'),
+  chip: svg('<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>'),
+  wing: svg('<path d="M3 9h18l-2 4H5z"/><path d="M8 13v6M16 13v6M5 19h6M13 19h6"/>'),
+  feather: svg('<path d="M20 4C11 4 6 9 6 18l-2 2"/><path d="M20 4c0 8-5 13-14 14M9 15h5M12 11h5"/>'),
+  bottle: svg('<path d="M10 2h4M11 2v3M13 2v3"/><rect x="8" y="5" width="8" height="17" rx="3"/><path d="M8 11h8M10 15l4 0"/>'),
+  bolt: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
+  battery: svg('<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M22 11v2M8 9l-2 3h4l-2 3"/>'),
   settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
 };
 
 let game = null;
 let panel = null;
-let tab = 'car';
 let envTab = 'countryside';
 let hud = null;
 let taps = 0;
 
 export function init(g) {
   game = g;
-  $('nav-upgrades').innerHTML = `${ICONS.wrench}<span>Upgrades</span><i class="badge"></i>`;
   $('nav-cars').innerHTML = `${ICONS.car}<span>Cars</span><i class="badge"></i>`;
   $('nav-races').innerHTML = `${ICONS.flag}<span>Race</span>`;
   $('sheet-close').innerHTML = ICONS.close;
@@ -71,19 +78,24 @@ export function init(g) {
   }));
   $('sheet-close').addEventListener('click', () => { sfx.click(); closePanel(); });
   $('sheet-body').addEventListener('click', onSheetClick);
+  $('upg-car').addEventListener('click', onSheetClick);
+  $('upg-garage').addEventListener('click', onSheetClick);
   $('sheet-tabs').addEventListener('click', e => {
     const b = e.target.closest('[data-tab]');
     if (!b) return;
     sfx.click();
-    if (panel === 'races') envTab = b.dataset.tab; else tab = b.dataset.tab;
+    envTab = b.dataset.tab;
     renderPanel();
   });
   $('goal-chip').addEventListener('click', () => {
     const g = goal();
     sfx.click();
     if (g.envTab) envTab = g.envTab;
-    if (g.tab) tab = g.tab;
     if (g.panel) openPanel(g.panel, true);
+    if (g.upgrade) {
+      closePanel();
+      flash(document.querySelector(`.upg-btn[data-id="${g.upgrade}"]`));
+    }
   });
   $('btn-trophies').insertAdjacentHTML('afterbegin', ICONS.trophy);
   $('btn-trophies').addEventListener('click', () => { sfx.click(); showAchievements(); });
@@ -93,8 +105,8 @@ export function init(g) {
   applyMotion();
   bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
 
-  // keyboard: Enter presses a dialog's main button; in the garage 1/2/3 open
-  // Race/Upgrades/Cars and Escape closes the top panel (GDD §10.10)
+  // keyboard: Enter presses a dialog's main button; in the garage 1/2 open Race/Cars and
+  // Escape closes the top panel (GDD §10.10)
   window.addEventListener('keydown', e => {
     if (e.code === 'Enter' && !$('modal').hidden && !e.repeat) {
       $('modal-card').querySelector('.actions .btn.go')?.click();
@@ -103,15 +115,17 @@ export function init(g) {
     if ($('garage-ui').hidden || e.repeat) return;
     if (e.code === 'Escape') { if (!$('modal').hidden) { hideModal(); coachUpdate(); } else closePanel(); }
     if (!$('modal').hidden) return;
-    const map = { Digit1: 'races', Digit2: 'upgrades', Digit3: 'cars' };
+    const map = { Digit1: 'races', Digit2: 'cars' };
     if (map[e.code]) openPanel(map[e.code]);
   });
 
   bus.on('change', what => {
     renderWallet();
-    if (!panel) return;
     if (what === 'money') refreshAfford();
-    else renderPanel();
+    else {
+      renderUpgrades();
+      if (panel) renderPanel();
+    }
   });
   taps = Math.min(8, state.stats.clicks);
   if (taps >= 8) $('tap-hint').classList.add('gone');
@@ -119,7 +133,16 @@ export function init(g) {
   window.addEventListener('resize', () => { bus.emit('focus'); coachUpdate(); });
   $('sheet-body').addEventListener('scroll', coachUpdate, { passive: true });
   $('sheet').addEventListener('transitionend', coachUpdate);
+  renderUpgrades();
   renderWallet();
+}
+
+// A short pulse to show the player where something is.
+function flash(el) {
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
 }
 
 function toggleSound() {
@@ -145,26 +168,22 @@ function renderWallet() {
   if ($('car-chip').innerHTML !== chip) $('car-chip').innerHTML = chip;
   const g = goal(), gc = `<span class="goal-label">Next</span>${g.text}`;
   if (gc !== lastChip) { $('goal-chip').innerHTML = gc; lastChip = gc; }
-  $('nav-upgrades').classList.toggle('has-badge', upgradeAffordable());
   $('nav-cars').classList.toggle('has-badge', CARS.some(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash));
   $('btn-trophies').classList.toggle('has-badge', Object.keys(state.achievements).length > (state.achSeen || 0));
   coachUpdate();
 }
 
-function upgradeAffordable() {
-  return Object.keys(CAR_UPGRADES).some(k => !upgradeLock(k) && upgradeCost(k) != null && upgradeCost(k) <= state.cash)
-    || (garageCost('click') ?? Infinity) <= state.cash || (autoUnlocked() && (garageCost('auto') ?? Infinity) <= state.cash);
-}
-
-// The single "Next goal" chip (GDD §2.3).
+// The single "Next goal" chip (GDD §2.3). `upgrade` points at a part button beside the car.
 function goal() {
-  if (!state.tutorial.upgraded && state.cash >= upgradeCost('engine', 'kaze')) return { text: 'Buy your first upgrade', panel: 'upgrades', tab: 'car' };
+  if (!state.tutorial.upgraded && state.cash >= upgradeCost('engine', 'kaze')) return { text: 'Buy your first upgrade', upgrade: 'engine' };
   const fresh = EVENTS.find(e => eventUnlocked(e) && !state.events[e.id]?.won);
-  if (fresh) return { text: `Race: ${fresh.name}`, panel: 'races', envTab: fresh.env };
   const car = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash);
   if (car) return { text: `Buy the ${car.name}`, panel: 'cars' };
-  const cheap = Object.keys(CAR_UPGRADES).find(k => !upgradeLock(k) && upgradeCost(k) != null && upgradeCost(k) <= state.cash * 0.25);
-  if (cheap) return { text: `Upgrade: ${CAR_UPGRADES[cheap].name}`, panel: 'upgrades', tab: 'car' };
+  // an affordable part when the car is short of the next race, or when it's small change
+  const def = carDef(state.car), underpowered = fresh && carPR(state.car) < fresh.rec;
+  const part = def.parts.find(k => !upgradeLock(k) && upgradeCost(k) != null && upgradeCost(k) <= state.cash * (underpowered ? 1 : 0.25));
+  if (part) return { text: `Upgrade: ${partName(def, part)}`, upgrade: part };
+  if (fresh) return { text: `Race: ${fresh.name}`, panel: 'races', envTab: fresh.env };
   const next = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id));
   if (next) return { text: `Save for the ${next.name} (${fmt(next.price)})`, panel: 'cars' };
   if (legendUnlocked()) return { text: `Legend Series: Round ${state.legend.round}`, panel: 'races', envTab: 'legend' };
@@ -174,25 +193,31 @@ function goal() {
 
 const sideSheet = () => matchMedia('(min-width: 860px) and (orientation: landscape)').matches;
 
-// Free screen area (CSS px) where the garage scene should frame the car.
+// Free screen area (CSS px) where the garage scene should frame the car: between the goal
+// chip and the nav bar, and between the two upgrade columns.
 export function garageFocus(ignoreBottomSheet = false) {
   const W = innerWidth, H = innerHeight;
-  const top = $('goal-chip').getBoundingClientRect().bottom;
+  let top = $('goal-chip').getBoundingClientRect().bottom;
   let bottom = $('nav').getBoundingClientRect().top;
-  let right = W;
+  const cols = $('upg-car').getBoundingClientRect();
+  let left = cols.right + 4;
+  let right = $('upg-garage').getBoundingClientRect().left - 4;
+  // phones upright: the columns sit high and the car takes the full width below them
+  if (right - left < W * 0.45) {
+    top = Math.max(top, cols.bottom - 24);
+    left = 0;
+    right = W;
+  }
   if (panel) {
     const sheet = $('sheet');
-    if (sideSheet()) right = W - sheet.offsetWidth - 16;
+    if (sideSheet()) right = Math.min(right, W - sheet.offsetWidth - 16);
     else if (!ignoreBottomSheet) bottom = H - sheet.offsetHeight;
   }
-  return { x: 0, y: top, w: right, h: Math.max(80, bottom - top) };
+  return { x: left, y: top, w: Math.max(80, right - left), h: Math.max(80, bottom - top) };
 }
 
 function openPanel(name, keepTab = false) {
-  if (!keepTab) {
-    if (name === 'upgrades' && panel !== 'upgrades') tab = 'car';
-    if (name === 'races') envTab = EVENTS.every(e => state.events[e.id]?.won) && legendUnlocked() ? 'legend' : latestEvent().env;
-  }
+  if (!keepTab && name === 'races') envTab = EVENTS.every(e => state.events[e.id]?.won) && legendUnlocked() ? 'legend' : latestEvent().env;
   panel = name;
   renderPanel();
   $('sheet').classList.add('open');
@@ -213,81 +238,67 @@ export function closePanel() {
 const tabsHtml = (list, on) => list.map(([id, label, locked]) => `<button class="tab ${id === on ? 'on' : ''} ${locked ? 'locked' : ''}" data-tab="${id}">${locked ? ICONS.lock : ''}${label}</button>`).join('');
 
 function renderPanel() {
-  const titles = { upgrades: 'Upgrades', cars: 'Cars', races: 'Race' };
+  const titles = { cars: 'Cars', races: 'Race' };
   $('sheet-title').textContent = titles[panel];
-  $('sheet-tabs').innerHTML = panel === 'upgrades' ? tabsHtml([['car', 'Car'], ['garage', 'Garage']], tab)
-    : panel === 'races' ? tabsHtml([...ENVS.map(v => [v.id, v.short, !envUnlocked(v)]), ['legend', 'Legend', !legendUnlocked()]], envTab) : '';
+  $('sheet-tabs').innerHTML = panel === 'races' ? tabsHtml([...ENVS.map(v => [v.id, v.short, !envUnlocked(v)]), ['legend', 'Legend', !legendUnlocked()]], envTab) : '';
   const scroll = $('sheet-body').scrollTop;
-  $('sheet-body').innerHTML = panel === 'upgrades' ? (tab === 'car' ? renderCarUpgrades() : renderGarageUpgrades())
-    : panel === 'cars' ? renderCars() : renderRaces();
+  $('sheet-body').innerHTML = panel === 'cars' ? renderCars() : renderRaces();
   $('sheet-body').scrollTop = scroll;
   refreshAfford();
   coachUpdate();
 }
 
-const pips = (lvl, max = MAX_LEVEL) => `<div class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</div>`;
+// ---------------------------------------------------------------- upgrades beside the car
 
-function buyButton(action, id, cost, lock) {
-  if (lock) return `<div class="locked-note">${ICONS.lock}<span>${lock}</span></div>`;
-  if (cost == null) return '<span class="max-tag">MAX</span>';
-  return `<button class="btn buy" data-action="${action}" data-id="${id}" data-cost="${cost}">${fmt(cost)}</button>`;
+const pips = (lvl, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`;
+
+// One upgrade button: icon, name, level pips, what the next level adds, and its price.
+function upgButton({ action, id, icon, name, lvl, max, gain, cost, lock, desc }) {
+  const kind = lock ? 'locked' : cost == null ? 'maxed' : '';
+  const price = lock ? `${ICONS.lock}<span>${lock}</span>` : cost == null ? 'MAX' : fmt(cost);
+  return `<button class="upg-btn ${kind}" data-action="${action}" data-id="${id}"${kind ? '' : ` data-cost="${cost}"`}${lock ? ` data-lock="${lock}"` : ''} title="${desc}">
+    <span class="ub-icon">${ICONS[icon]}</span>
+    <span class="ub-name">${name}</span>
+    ${pips(lvl, max)}
+    ${gain && !kind ? `<span class="ub-gain">${gain}</span>` : ''}
+    <span class="ub-cost">${price}</span>
+  </button>`;
 }
 
-function renderCarUpgrades() {
-  const car = carDef(state.car), now = tunedSpec();
-  const statName = { accel: 'Accel', topSpeed: 'Top', launch: 'Launch' };
-  const hint = `<p class="hint">Tuning your <b>${car.name}</b> · PR <b>${carPR(state.car)}</b>. Each car keeps its own parts.</p>`;
-  return hint + Object.entries(CAR_UPGRADES).map(([id, u]) => {
-    const lvl = upgradeLevel(id), cost = upgradeCost(id), lock = upgradeLock(id);
-    let preview = '';
-    if (cost != null && !lock) {
-      const next = previewSpec(id);
-      const stat = u.stat ? `${statName[u.stat]} ${now[u.stat].toFixed(1)} → ${next[u.stat].toFixed(1)} · ` : `Shift zones +4% · `;
-      preview = `${stat}PR ${pr(now)} → <b>${pr(next)}</b>`;
-    }
-    return `<div class="card upg ${cost == null ? 'maxed' : ''}">
-      <div class="icon">${ICONS[u.icon]}</div>
-      <div class="info">
-        <div class="name">${u.name} <span class="lvl">Lv ${lvl}/${MAX_LEVEL}</span></div>
-        <div class="desc">${u.desc}</div>
-        ${preview ? `<div class="effect">${preview}</div>` : ''}
-        ${pips(lvl)}
-      </div>
-      ${buyButton('upgrade', id, cost, lock)}
-    </div>`;
+// Left of the car: its own four parts. Right: the garage (tap power, pit crew, reputation).
+function renderUpgrades() {
+  const car = carDef(state.car), now = pr(tunedSpec());
+  $('upg-car').innerHTML = car.parts.map(id => {
+    const p = PARTS[id], cost = upgradeCost(id), lock = upgradeLock(id);
+    const d = cost != null && !lock ? pr(previewSpec(id)) - now : 0;
+    const gain = d > 0 ? `+${d} PR` : p.fx.shift ? 'Wider shifts' : '';
+    return upgButton({ action: 'upgrade', id, icon: p.icon, name: partName(car, id), lvl: upgradeLevel(id), max: PART_LEVELS, gain, cost, lock: lock?.replace('Needs ', ''), desc: p.desc });
   }).join('');
+  const cp = state.clickPower, au = state.automation, stars = totalStars(), mult = 1 + STAR_BONUS * stars;
+  $('upg-garage').innerHTML = upgButton({
+    action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, max: GARAGE_LEVELS, cost: garageCost('click'),
+    gain: cp < GARAGE_LEVELS ? `${fmt(Math.round(CLICK_BASE[cp + 1] * mult))} / tap` : '', desc: 'Cash for every tap on your car.',
+  }) + upgButton({
+    action: 'garage', id: 'auto', icon: 'crew', name: 'Pit Crew', lvl: au, max: GARAGE_LEVELS, cost: garageCost('auto'),
+    lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
+    gain: au < GARAGE_LEVELS ? `${AUTO_CPS[au + 1]} taps / s` : '', desc: "Taps your car for you, even while you're away (half rate, up to 2 h).",
+  }) + `<button class="upg-btn rep" data-action="rep" title="Stars raise tap income and unlock garage decor.">
+    <span class="ub-icon">${ICONS.star}</span><span class="ub-name">Reputation</span>
+    <span class="ub-gain">×${mult.toFixed(2)} taps</span><span class="ub-cost">★ ${stars}</span>
+  </button>`;
+  refreshAfford();
 }
 
-function renderGarageUpgrades() {
-  const stars = totalStars(), mult = 1 + STAR_BONUS * stars;
-  const m = MILESTONES.find(x => x.stars > stars);
-  const rep = `<div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Reputation</b> · tap income ×${mult.toFixed(2)}<div class="desc">${m ? `Next: ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}` : 'Every star earned!'}</div></div></div>`;
-  const cp = state.clickPower, au = state.automation;
-  const clickCard = `<div class="card upg ${cp >= MAX_LEVEL ? 'maxed' : ''}">
-    <div class="icon income">${ICONS.coin}</div>
-    <div class="info">
-      <div class="name">Click Power <span class="lvl">Lv ${cp}/${MAX_LEVEL}</span></div>
-      <div class="desc">Cash for every tap on your car.</div>
-      <div class="effect">Base $${CLICK_BASE[cp]}${cp < MAX_LEVEL ? ` → <b>$${CLICK_BASE[cp + 1]}</b>` : ''} per tap</div>
-      ${pips(cp)}
-    </div>
-    ${buyButton('garage', 'click', garageCost('click'))}
-  </div>`;
-  const autoCard = `<div class="card upg ${au >= MAX_LEVEL ? 'maxed' : ''}">
-    <div class="icon income">${ICONS.crew}</div>
-    <div class="info">
-      <div class="name">Garage Automation <span class="lvl">Lv ${au}/${MAX_LEVEL}</span></div>
-      <div class="desc">Taps your car for you, even while you're away (half rate, up to 2 h).</div>
-      <div class="effect">${AUTO_CPS[au]} taps/s${au < MAX_LEVEL ? ` → <b>${AUTO_CPS[au + 1]} taps/s</b>` : ''}</div>
-      ${pips(au)}
-    </div>
-    ${buyButton('garage', 'auto', garageCost('auto'), autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`)}
-  </div>`;
+function showReputation() {
+  const stars = totalStars(), mult = 1 + STAR_BONUS * stars, m = MILESTONES.find(x => x.stars > stars);
   const decor = MILESTONES.filter(x => x.decor).map(x => {
     const on = stars >= x.stars;
     return `<div class="decor ${on ? 'on' : ''}">${on ? ICONS.check : ICONS.lock}<span>${x.decor}</span><b>${x.stars}★</b></div>`;
   }).join('');
-  return rep + clickCard + autoCard + `<div class="hint">Garage decor, earned with stars</div><div class="decor-list">${decor}</div>`;
+  modal(`<div class="result-title">Reputation</div>
+    <div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Tap income ×${mult.toFixed(2)}</b><div class="desc">Every star from a race adds 5%. ${m ? `Next: ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}` : 'Every star earned!'}</div></div></div>
+    <div class="hint">Garage decor, earned with stars</div><div class="decor-list">${decor}</div>
+    <div class="actions"><button class="btn go" data-m="close">Close</button></div>`, { close: coachUpdate });
 }
 
 const windowLabel = w => (w >= 0.8 ? 'Wide' : w >= 0.7 ? 'Normal' : 'Narrow');
@@ -311,6 +322,7 @@ function renderCars() {
         <div class="name">${c.name} <span class="tier">Tier ${c.tier}</span></div>
         <div class="pr-line">PR <b>${owned ? carPR(c.id) : stockPR(c.id)}</b> · ${c.stats.gears} gears · ${windowLabel(c.stats.shiftWindow)} shift window</div>
         <div class="desc quirk">${c.niche}</div>
+        <div class="parts-line">${c.parts.map(id => `<span>${ICONS[PARTS[id].icon]}${partName(c, id)}</span>`).join('')}</div>
       </div>
       <div class="stats">
         ${stat('Launch', s.launch, 130)}
@@ -355,7 +367,8 @@ function renderLegend() {
 function renderRaces() {
   if (envTab === 'legend') return renderLegend();
   const env = ENVS.find(v => v.id === envTab);
-  const head = `<div class="loc"><div><div class="loc-name">${env.name}</div><div class="desc">Your car: <b>${carDef(state.car).name}</b> · PR <b>${carPR(state.car)}</b></div></div><span class="tag">${env.tag}</span></div>`;
+  const head = `<div class="loc"><div><div class="loc-name">${env.name}</div><div class="desc">Your car: <b>${carDef(state.car).name}</b> · PR <b>${carPR(state.car)}</b></div></div><span class="tag">${env.tag}</span></div>`
+    + `<button class="card practice" data-action="practice"><div class="icon">${ICONS.flag}</div><div class="info"><div class="name">Driving lesson</div><div class="desc">Practice the launch, shifting and nitro step by step. No rewards, no pressure.</div></div><span class="btn">Practice</span></button>`;
   if (!envUnlocked(env)) {
     return head + `<div class="card locked-env">${ICONS.lock}<div><b>Locked</b><div class="desc">Win ${eventDef(env.requires).name} to unlock this venue.</div></div></div>`;
   }
@@ -379,18 +392,36 @@ function renderRaces() {
 }
 
 function refreshAfford() {
-  document.querySelectorAll('#sheet-body [data-cost]').forEach(b => b.classList.toggle('poor', state.cash < +b.dataset.cost));
+  document.querySelectorAll('#sheet-body [data-cost], .upg-btn[data-cost]').forEach(b => b.classList.toggle('poor', state.cash < +b.dataset.cost));
 }
 
 function onSheetClick(e) {
   const b = e.target.closest('[data-action]');
   if (!b) return;
   const { action, id } = b.dataset;
-  const need = () => toast(`Need ${fmt(+b.dataset.cost - state.cash)} more`);
+  const need = () => toast(b.dataset.lock ? `Locked: ${b.dataset.lock}` : `Need ${fmt(+b.dataset.cost - state.cash)} more`);
+  if (b.classList.contains('maxed')) { sfx.click(); toast('Maxed out!'); return; }
   if (action === 'upgrade') {
-    if (buyUpgrade(id)) sfx.buy(); else { sfx.deny(); need(); }
+    const before = carPR(state.car);
+    if (buyUpgrade(id)) {
+      sfx.buy();
+      buzz(20);
+      flash(document.querySelector(`.upg-btn[data-id="${id}"]`));
+      bus.emit('upgraded', { name: partName(carDef(state.car), id), lvl: upgradeLevel(id), gain: carPR(state.car) - before });
+    } else { sfx.deny(); need(); }
   } else if (action === 'garage') {
-    if (buyGarage(id)) sfx.buy(); else { sfx.deny(); need(); }
+    if (buyGarage(id)) {
+      sfx.buy();
+      buzz(20);
+      flash(document.querySelector(`.upg-btn[data-id="${id}"]`));
+      bus.emit('upgraded', { name: id === 'click' ? 'Tap Power' : 'Pit Crew', lvl: id === 'click' ? state.clickPower : state.automation });
+    } else { sfx.deny(); need(); }
+  } else if (action === 'practice') {
+    sfx.click();
+    startRace('country_1', true);
+  } else if (action === 'rep') {
+    sfx.click();
+    showReputation();
   } else if (action === 'car') {
     if (buyCar(id)) { sfx.buy(); toast(`The ${carDef(id).name} is yours!`); } else { sfx.deny(); need(); }
   } else if (action === 'select') {
@@ -417,12 +448,12 @@ export function showGarage() {
 }
 
 // Works from the garage and from a finished race ("Next event"), which restarts the race scene.
-function startRace(id) {
+function startRace(id, practice = false) {
   closePanel();
   coachOff();
   showScreen('race');
   game.scene.stop('garage');
-  game.scene.start('race', { eventId: id });
+  game.scene.start('race', { eventId: id, practice });
 }
 
 function toGarage() {
@@ -557,6 +588,7 @@ export function coach(el, text) {
     return;
   }
   coachEl = el;
+  box.classList.remove('center');
   el.classList.add('coach-target');
   if ($('coach-text').textContent !== text) $('coach-text').textContent = text;
   box.hidden = false;
@@ -568,7 +600,37 @@ export function coach(el, text) {
   box.style.top = `${above ? r.top - bh - 12 : r.bottom + 12}px`;
   box.style.setProperty('--arrow', `${Math.min(bw - 18, Math.max(18, r.left + r.width / 2 - x))}px`);
 }
-export const coachOff = () => coach(null);
+export const coachOff = () => lesson(null);
+
+// The race lesson's card: a step title ("2/3 · SHIFT"), one instruction and, when the race
+// waits on reading rather than on an action, a button. It points at `el`, or sits mid-screen
+// without one. `frozen` dims the track so it's clear the race is waiting for the player.
+let lessonKey = '';
+export function lesson(el, { title = '', text = '', button = null, onButton = null, frozen = false } = {}) {
+  $('race-dim').classList.toggle('on', !!frozen && !!text);
+  const box = $('coach');
+  box.classList.toggle('lesson', !!text);
+  if (!text) {
+    lessonKey = '';
+    $('coach-text').innerHTML = '';
+    return coach(null);
+  }
+  const key = `${title}|${text}|${button}`;
+  if (key !== lessonKey) {
+    lessonKey = key;
+    $('coach-text').innerHTML = `${title ? `<b class="lesson-title">${title}</b>` : ''}<span>${text}</span>${button ? `<button class="btn go lesson-btn">${button}</button>` : ''}`;
+    $('coach-text').querySelector('.lesson-btn')?.addEventListener('click', e => { e.stopPropagation(); sfx.click(); onButton?.(); });
+  }
+  if (el) return coach(el, $('coach-text').textContent);
+  // no target: a centred card under the race header
+  if (coachEl) coachEl.classList.remove('coach-target');
+  coachEl = null;
+  box.hidden = false;
+  box.classList.remove('below');
+  box.classList.add('center');
+  box.style.left = `${(innerWidth - box.offsetWidth) / 2}px`;
+  box.style.top = `${raceTopInset() + 16}px`;
+}
 
 // An open bottom sheet covers the nav bar, so point at the goal chip (which opens the same panel).
 const navTarget = name => (panel && !sideSheet() ? $('goal-chip') : $(`nav-${name}`));
@@ -585,9 +647,8 @@ function guideStep() {
   if (!$('modal').hidden) return !t.raced && $('mu-race') ? [$('mu-race'), "Let's race!"] : null;
   if (!t.upgraded) {
     if (state.cash < upgradeCost('engine', 'kaze')) return null; // the tap hint covers this part
-    if (panel !== 'upgrades') return [navTarget('upgrades'), 'You can afford an upgrade!'];
-    if (tab !== 'car') return [$('sheet-tabs').querySelector('[data-tab="car"]'), 'Car upgrades'];
-    return [$('sheet-body').querySelector('[data-action="upgrade"][data-id="engine"]'), 'Buy Engine for more acceleration'];
+    if (panel && !sideSheet()) return [$('goal-chip'), 'You can afford an upgrade!'];
+    return [document.querySelector('.upg-btn[data-id="engine"]'), 'Tap Engine to upgrade your car'];
   }
   if (panel !== 'races') return [navTarget('races'), 'Time for your first race!'];
   if (envTab !== 'countryside') return null;
@@ -636,14 +697,15 @@ function buildTach(spec, redline) {
   return s;
 }
 
-export function showRace(event, pSpec, oSpec, handlers) {
+export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   showScreen('race');
   const env = ENVS.find(v => v.id === event.env), car = carDef(state.car);
   $('race-name').textContent = event.name;
   $('race-sub').textContent = `${env.short} · ${DIST[event.dist].label} · ${car.name} PR ${pr(pSpec)} vs ${oSpec.name}`;
   $('speed-unit').textContent = state.units === 'kmh' ? 'KM/H' : 'MPH';
   const rec = state.events[event.id];
-  $('race-reward').innerHTML = `<small>Win</small>${fmt(event.win + (rec?.won ? 0 : event.first + (event.champion || 0)))}`;
+  $('race-reward').innerHTML = practice ? '<small>Lesson</small>Practice' : `<small>Win</small>${fmt(event.win + (rec?.won ? 0 : event.first + (event.champion || 0)))}`;
+  $('callout').className = 'callout';
   $('tach').innerHTML = buildTach(pSpec, car.redlineRpm);
   hud = { needle: $('tach').querySelector('.needle'), hub: $('tach').querySelector('.t-hub'), last: {} };
   $('tach').classList.remove('launched');
@@ -792,6 +854,26 @@ export function showResult(d, actions) {
       <button class="btn" data-m="garage">Garage</button>
       <button class="btn ${actions.next ? '' : 'go'}" data-m="again">Retry</button>
       ${actions.next ? `<button class="btn go" data-m="next">${legend ? 'Next round' : 'Next event'}</button>` : ''}
+    </div>`, actions);
+}
+
+// End of a Practice lesson: how each of the three skills went, with the rule to remember.
+export function showPracticeDone(d, actions) {
+  const n = q => d.shifts.filter(s => s === q).length;
+  const shiftText = ['perfect', 'good', 'early', 'late'].filter(q => n(q)).map(q => `${n(q)} ${q}`).join(', ') || 'none';
+  const skill = (name, result, good, rule) => `<div class="skill ${good ? 'ok' : ''}">
+    <div class="skill-head"><b>${name}</b><span>${result}</span></div><small>${rule}</small></div>`;
+  modal(`
+    <div class="result-title win">LESSON DONE</div>
+    <div class="result-sub">Practice races pay nothing. Run it again any time from the Race menu.</div>
+    <div class="skills">
+      ${skill('1 · Launch', LAUNCH_NAME[d.launch] || '—', d.launch === 'perfect' || d.launch === 'good', 'Press and hold on the yellow lights so the needle sits in the yellow band. Let go the moment the light turns GREEN.')}
+      ${skill('2 · Shift', shiftText, n('early') + n('late') === 0, 'Tap when the needle reaches the GREEN zone. Its bright middle is a PERFECT shift: a burst of speed.')}
+      ${skill('3 · Nitro', nitroText(d.nitros) || 'not used', d.nitros.includes('chain'), 'In top gear, tap for a burst. Tap again when the button flashes white to CHAIN a bigger one.')}
+    </div>
+    <div class="actions">
+      <button class="btn" data-m="garage">Garage</button>
+      <button class="btn go" data-m="again">Practice again</button>
     </div>`, actions);
 }
 
