@@ -13,6 +13,8 @@ export class GarageScene extends Phaser.Scene {
     ui.showGarage();
     this.car = null;
     this.build();
+    // fetch every car's scene in the background, so flipping cars never waits on one
+    for (const id of Object.keys(SCENES)) this.sceneFor(id);
     this.scale.on('resize', this.build, this);
     const offs = [
       bus.on('focus', () => this.placeCar(true)),
@@ -38,12 +40,14 @@ export class GarageScene extends Phaser.Scene {
     const sc = SCENES[id];
     if (!sc) return GARAGE;
     const key = `scene-${id}`;
-    if (this.textures.exists(key)) return { ...sc, key, frame: sc.crop ? 'crop' : undefined };
+    if (this.textures.exists(key)) {
+      if (sc.crop && !this.textures.get(key).has('crop')) this.textures.get(key).add('crop', 0, ...sc.crop);
+      return { ...sc, key, frame: sc.crop ? 'crop' : undefined };
+    }
     if (!this.loading?.has(key)) {
       (this.loading ??= new Set()).add(key);
       this.load.image(key, sc.file);
       this.load.once(`filecomplete-image-${key}`, () => {
-        if (sc.crop) this.textures.get(key).add('crop', 0, ...sc.crop);
         if (this.sys.isActive() && ui.shownCar() === id) this.build();
       });
       this.load.start();
@@ -127,8 +131,8 @@ export class GarageScene extends Phaser.Scene {
     this.car?.destroy();
     const id = ui.shownCar();
     this.car = new CarView(this, `garage-${id}`);
-    // a car still locked behind an event shows as a dim preview
-    if (carLock(id)) this.car.c.setAlpha(0.45);
+    // a car still locked behind an event shows as a dark silhouette
+    if (carLock(id)) this.car.c.each(o => o.setTint?.(0x2e2f3a));
     this.placeCar(false);
   }
 

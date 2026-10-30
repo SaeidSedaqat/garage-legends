@@ -43,6 +43,9 @@ export const SCENES = {
   kodiak: { file: 'assets/scene-kodiak.jpg', crop: [0, 0, 1264, 738], floor: 0.68, ground: 0.92 }, // without the stray hood at the bottom
   valken: { file: 'assets/scene-valken.jpg', floor: 0.6, ground: 0.88 },
   sora: { file: 'assets/scene-sora.jpg', floor: 0.62, ground: 0.88 },
+  furia: { file: 'assets/scene-furia.jpg', floor: 0.55, ground: 0.79 }, // in the spotlight, above the front step
+  volta: { file: 'assets/scene-volta.jpg', floor: 0.68, ground: 0.84 },  // inside the glowing ring
+  apex: { file: 'assets/scene-apex.jpg', floor: 0.68, ground: 0.84 },   // on the golden platform
 };
 
 // Scales an image to cover a W×H box, centered horizontally and anchored at `ay` (0 top, 1 bottom).

@@ -1,11 +1,11 @@
 import { ART, CARS, OPPONENTS } from '../data.js';
-import { GARAGE, MOCKUP, PROPS, addTex, drawShadow, drawWrench, ensureCar, queueCar, registerProps } from '../art.js';
+import { GARAGE, MOCKUP, PROPS, SCENES, addTex, drawShadow, drawWrench, ensureCar, queueCar, registerProps } from '../art.js';
 import { checkAchievements, collectOffline, save, state } from '../state.js';
 import { platform } from '../platform.js';
 import * as ui from '../ui.js';
 
-// Every car texture in the game: [key, art source, recolor]. Cars without their own art
-// yet are recolors of another car's art (see data.js).
+// Every car texture in the game: [key, art source, recolor]. Rivals are recolors of the
+// car model they drive (see data.js).
 const carArt = () => [
   ...CARS.map(c => [`car-${c.id}`, ART[c.art].side, c.tint]),
   ...CARS.map(c => [`garage-${c.id}`, ART[c.art].pose, c.tint]),
@@ -18,6 +18,8 @@ export class BootScene extends Phaser.Scene {
   preload() {
     this.load.image(MOCKUP.key, MOCKUP.file);
     this.load.image(GARAGE.key, GARAGE.file);
+    // the scene of the car you drive is there from the start; the rest load in the garage
+    if (SCENES[state.car]) this.load.image(`scene-${state.car}`, SCENES[state.car].file);
     this.load.image(PROPS.key, PROPS.file);
     for (const file of new Set(carArt().map(([, s]) => s.file))) this.load.image(file, file);
   }
