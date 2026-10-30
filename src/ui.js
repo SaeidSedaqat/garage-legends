@@ -59,27 +59,23 @@ const ICONS = {
 };
 
 let game = null;
-let panel = null;
+let panel = 'upgrades'; // the dock's open tab: upgrades, cars or races
 let envTab = 'countryside';
 let hud = null;
 let taps = 0;
 
 export function init(g) {
   game = g;
+  $('nav-upgrades').innerHTML = `${ICONS.wrench}<span>Upgrades</span><i class="badge"></i>`;
   $('nav-cars').innerHTML = `${ICONS.car}<span>Cars</span><i class="badge"></i>`;
   $('nav-races').innerHTML = `${ICONS.flag}<span>Race</span>`;
-  $('sheet-close').innerHTML = ICONS.close;
   $('btn-pause').innerHTML = ICONS.pause;
 
   document.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => {
     sfx.click();
-    if (panel === b.dataset.panel) closePanel();
-    else openPanel(b.dataset.panel);
+    openPanel(b.dataset.panel);
   }));
-  $('sheet-close').addEventListener('click', () => { sfx.click(); closePanel(); });
   $('sheet-body').addEventListener('click', onSheetClick);
-  $('upg-car').addEventListener('click', onSheetClick);
-  $('upg-garage').addEventListener('click', onSheetClick);
   $('sheet-tabs').addEventListener('click', e => {
     const b = e.target.closest('[data-tab]');
     if (!b) return;
@@ -93,8 +89,10 @@ export function init(g) {
     if (g.envTab) envTab = g.envTab;
     if (g.panel) openPanel(g.panel, true);
     if (g.upgrade) {
-      closePanel();
-      flash(document.querySelector(`.upg-btn[data-id="${g.upgrade}"]`));
+      openPanel('upgrades');
+      const b = document.querySelector(`.upg-btn[data-id="${g.upgrade}"]`);
+      b?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      flash(b);
     }
   });
   $('btn-trophies').insertAdjacentHTML('afterbegin', ICONS.trophy);
@@ -105,35 +103,31 @@ export function init(g) {
   applyMotion();
   bus.on('achievement', list => list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy')));
 
-  // keyboard: Enter presses a dialog's main button; in the garage 1/2 open Race/Cars and
-  // Escape closes the top panel (GDD §10.10)
+  // keyboard: Enter presses a dialog's main button, Escape closes it; in the garage 1/2/3
+  // switch the panel to Race/Upgrades/Cars (GDD §10.10)
   window.addEventListener('keydown', e => {
     if (e.code === 'Enter' && !$('modal').hidden && !e.repeat) {
       $('modal-card').querySelector('.actions .btn.go')?.click();
       return;
     }
     if ($('garage-ui').hidden || e.repeat) return;
-    if (e.code === 'Escape') { if (!$('modal').hidden) { hideModal(); coachUpdate(); } else closePanel(); }
+    if (e.code === 'Escape' && !$('modal').hidden) { hideModal(); coachUpdate(); }
     if (!$('modal').hidden) return;
-    const map = { Digit1: 'races', Digit2: 'cars' };
+    const map = { Digit1: 'races', Digit2: 'upgrades', Digit3: 'cars' };
     if (map[e.code]) openPanel(map[e.code]);
   });
 
   bus.on('change', what => {
     renderWallet();
     if (what === 'money') refreshAfford();
-    else {
-      renderUpgrades();
-      if (panel) renderPanel();
-    }
+    else renderPanel();
   });
   taps = Math.min(8, state.stats.clicks);
   if (taps >= 8) $('tap-hint').classList.add('gone');
   bus.on('tap', () => { if (++taps === 8) $('tap-hint').classList.add('gone'); });
   window.addEventListener('resize', () => { bus.emit('focus'); coachUpdate(); });
   $('sheet-body').addEventListener('scroll', coachUpdate, { passive: true });
-  $('sheet').addEventListener('transitionend', coachUpdate);
-  renderUpgrades();
+  openPanel('upgrades');
   renderWallet();
 }
 
@@ -168,6 +162,9 @@ function renderWallet() {
   if ($('car-chip').innerHTML !== chip) $('car-chip').innerHTML = chip;
   const g = goal(), gc = `<span class="goal-label">Next</span>${g.text}`;
   if (gc !== lastChip) { $('goal-chip').innerHTML = gc; lastChip = gc; }
+  const affordable = cost => cost != null && cost <= state.cash;
+  $('nav-upgrades').classList.toggle('has-badge', carDef(state.car).parts.some(k => !upgradeLock(k) && affordable(upgradeCost(k)))
+    || affordable(garageCost('click')) || (autoUnlocked() && affordable(garageCost('auto'))));
   $('nav-cars').classList.toggle('has-badge', CARS.some(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash));
   $('btn-trophies').classList.toggle('has-badge', Object.keys(state.achievements).length > (state.achSeen || 0));
   coachUpdate();
@@ -191,64 +188,40 @@ function goal() {
   return m ? { text: `Earn ${m.stars}★ for ${m.cash ? fmt(m.cash) : m.decor}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
 }
 
-const sideSheet = () => matchMedia('(min-width: 860px) and (orientation: landscape)').matches;
+// The garage view (CSS px): the screen beside the dock, or above it on phones held upright
+// where the dock sits at the bottom.
+export function garageArea() {
+  const W = innerWidth, H = innerHeight, d = $('dock').getBoundingClientRect();
+  return d.left > W * 0.3 ? { w: d.left, h: H } : { w: W, h: d.top };
+}
 
-// Free screen area (CSS px) where the garage scene should frame the car: between the goal
-// chip and the nav bar, and between the two upgrade columns.
-export function garageFocus(ignoreBottomSheet = false) {
-  const W = innerWidth, H = innerHeight;
-  let top = $('goal-chip').getBoundingClientRect().bottom;
-  let bottom = $('nav').getBoundingClientRect().top;
-  const cols = $('upg-car').getBoundingClientRect();
-  let left = cols.right + 4;
-  let right = $('upg-garage').getBoundingClientRect().left - 4;
-  // phones upright: the columns sit high and the car takes the full width below them
-  if (right - left < W * 0.45) {
-    top = Math.max(top, cols.bottom - 24);
-    left = 0;
-    right = W;
-  }
-  if (panel) {
-    const sheet = $('sheet');
-    if (sideSheet()) right = Math.min(right, W - sheet.offsetWidth - 16);
-    else if (!ignoreBottomSheet) bottom = H - sheet.offsetHeight;
-  }
-  return { x: left, y: top, w: Math.max(80, right - left), h: Math.max(80, bottom - top) };
+// Where the garage scene should frame the car: the garage view below the goal chip.
+export function garageFocus() {
+  const a = garageArea(), top = $('goal-chip').getBoundingClientRect().bottom;
+  return { x: 0, y: top, w: Math.max(80, a.w), h: Math.max(80, a.h - top - 8) };
 }
 
 function openPanel(name, keepTab = false) {
-  if (!keepTab && name === 'races') envTab = EVENTS.every(e => state.events[e.id]?.won) && legendUnlocked() ? 'legend' : latestEvent().env;
+  if (!keepTab && name === 'races' && panel !== 'races') envTab = EVENTS.every(e => state.events[e.id]?.won) && legendUnlocked() ? 'legend' : latestEvent().env;
+  const changedTab = panel !== name;
   panel = name;
   renderPanel();
-  $('sheet').classList.add('open');
-  $('sheet').setAttribute('aria-hidden', 'false');
+  if (changedTab) $('sheet-body').scrollTop = 0;
   document.querySelectorAll('[data-panel]').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
-  bus.emit('focus');
-}
-
-export function closePanel() {
-  if (!panel) return;
-  panel = null;
-  $('sheet').classList.remove('open');
-  $('sheet').setAttribute('aria-hidden', 'true');
-  document.querySelectorAll('[data-panel]').forEach(b => b.classList.remove('active'));
-  bus.emit('focus');
 }
 
 const tabsHtml = (list, on) => list.map(([id, label, locked]) => `<button class="tab ${id === on ? 'on' : ''} ${locked ? 'locked' : ''}" data-tab="${id}">${locked ? ICONS.lock : ''}${label}</button>`).join('');
 
 function renderPanel() {
-  const titles = { cars: 'Cars', races: 'Race' };
-  $('sheet-title').textContent = titles[panel];
   $('sheet-tabs').innerHTML = panel === 'races' ? tabsHtml([...ENVS.map(v => [v.id, v.short, !envUnlocked(v)]), ['legend', 'Legend', !legendUnlocked()]], envTab) : '';
   const scroll = $('sheet-body').scrollTop;
-  $('sheet-body').innerHTML = panel === 'cars' ? renderCars() : renderRaces();
+  $('sheet-body').innerHTML = panel === 'upgrades' ? renderUpgrades() : panel === 'cars' ? renderCars() : renderRaces();
   $('sheet-body').scrollTop = scroll;
   refreshAfford();
   coachUpdate();
 }
 
-// ---------------------------------------------------------------- upgrades beside the car
+// ---------------------------------------------------------------- upgrades
 
 const pips = (lvl, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`;
 
@@ -265,17 +238,18 @@ function upgButton({ action, id, icon, name, lvl, max, gain, cost, lock, desc })
   </button>`;
 }
 
-// Left of the car: its own four parts. Right: the garage (tap power, pit crew, reputation).
+// The Upgrades tab: the current car's own four parts, then the garage (tap power, pit crew,
+// reputation).
 function renderUpgrades() {
   const car = carDef(state.car), now = pr(tunedSpec());
-  $('upg-car').innerHTML = car.parts.map(id => {
+  const parts = car.parts.map(id => {
     const p = PARTS[id], cost = upgradeCost(id), lock = upgradeLock(id);
     const d = cost != null && !lock ? pr(previewSpec(id)) - now : 0;
     const gain = d > 0 ? `+${d} PR` : p.fx.shift ? 'Wider shifts' : '';
     return upgButton({ action: 'upgrade', id, icon: p.icon, name: partName(car, id), lvl: upgradeLevel(id), max: PART_LEVELS, gain, cost, lock: lock?.replace('Needs ', ''), desc: p.desc });
   }).join('');
   const cp = state.clickPower, au = state.automation, stars = totalStars(), mult = 1 + STAR_BONUS * stars;
-  $('upg-garage').innerHTML = upgButton({
+  const garage = upgButton({
     action: 'garage', id: 'click', icon: 'coin', name: 'Tap Power', lvl: cp, max: GARAGE_LEVELS, cost: garageCost('click'),
     gain: cp < GARAGE_LEVELS ? `${fmt(Math.round(CLICK_BASE[cp + 1] * mult))} / tap` : '', desc: 'Cash for every tap on your car.',
   }) + upgButton({
@@ -286,7 +260,8 @@ function renderUpgrades() {
     <span class="ub-icon">${ICONS.star}</span><span class="ub-name">Reputation</span>
     <span class="ub-gain">×${mult.toFixed(2)} taps</span><span class="ub-cost">★ ${stars}</span>
   </button>`;
-  refreshAfford();
+  return `<div class="dock-head">${car.name} · PR <b>${carPR(state.car)}</b></div><div class="upg-grid">${parts}</div>
+    <div class="dock-head">Garage</div><div class="upg-grid">${garage}</div>`;
 }
 
 function showReputation() {
@@ -449,7 +424,6 @@ export function showGarage() {
 
 // Works from the garage and from a finished race ("Next event"), which restarts the race scene.
 function startRace(id, practice = false) {
-  closePanel();
   coachOff();
   showScreen('race');
   game.scene.stop('garage');
@@ -632,9 +606,6 @@ export function lesson(el, { title = '', text = '', button = null, onButton = nu
   box.style.top = `${raceTopInset() + 16}px`;
 }
 
-// An open bottom sheet covers the nav bar, so point at the goal chip (which opens the same panel).
-const navTarget = name => (panel && !sideSheet() ? $('goal-chip') : $(`nav-${name}`));
-
 // Tap the car → buy the first upgrade → win the first race. Returns [element, text] or null.
 function guideStep() {
   const t = state.tutorial;
@@ -647,10 +618,10 @@ function guideStep() {
   if (!$('modal').hidden) return !t.raced && $('mu-race') ? [$('mu-race'), "Let's race!"] : null;
   if (!t.upgraded) {
     if (state.cash < upgradeCost('engine', 'kaze')) return null; // the tap hint covers this part
-    if (panel && !sideSheet()) return [$('goal-chip'), 'You can afford an upgrade!'];
+    if (panel !== 'upgrades') return [$('nav-upgrades'), 'You can afford an upgrade!'];
     return [document.querySelector('.upg-btn[data-id="engine"]'), 'Tap Engine to upgrade your car'];
   }
-  if (panel !== 'races') return [navTarget('races'), 'Time for your first race!'];
+  if (panel !== 'races') return [$('nav-races'), 'Time for your first race!'];
   if (envTab !== 'countryside') return null;
   return [$('sheet-body').querySelector('[data-id="country_1"]'), 'Race The Rusty'];
 }

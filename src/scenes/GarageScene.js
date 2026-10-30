@@ -33,7 +33,8 @@ export class GarageScene extends Phaser.Scene {
   }
 
   build() {
-    const W = this.scale.width, H = this.scale.height;
+    // the garage fills the screen beside the dock (above it on phones held upright)
+    const area = ui.garageArea(), W = area.w * DPR, H = area.h * DPR;
     this.bg?.destroy();
     this.sign?.destroy();
     this.bg = this.add.image(0, 0, GARAGE.key).setDepth(-10);
@@ -95,14 +96,12 @@ export class GarageScene extends Phaser.Scene {
 
   placeCar(animate) {
     if (!this.car) return;
-    // A bottom sheet doesn't shrink the car; the camera scrolls up to keep it in view instead.
-    const f = ui.garageFocus(true);
-    const visible = ui.garageFocus();
+    const f = ui.garageFocus();
     // never wider than the art itself, so the car stays sharp
-    const w = Math.min(Math.min(f.w * 0.94, f.h * 1.4) * DPR, this.car.m.w);
+    const w = Math.min(Math.min(f.w * (f.w < f.h ? 0.9 : 0.72), f.h * 1.4) * DPR, this.car.m.w);
     const x = (f.x + f.w / 2) * DPR + w / 2;
     const y = Math.max(this.floorY + w * 0.2, Math.min(this.groundY, (f.y + f.h) * DPR - 4 * DPR));
-    const scrollY = Math.max(0, y + 16 * DPR - (visible.y + visible.h) * DPR);
+    const scrollY = 0;
     const cam = this.cameras.main;
     // the lift frames the car: a post just past each bumper, a little taller than the roof
     const lift = { x: x - w / 2, y: y + w * 0.02, displayWidth: w * 1.16, displayHeight: w * 0.5 };
@@ -166,7 +165,7 @@ export class GarageScene extends Phaser.Scene {
     if (!this.car) return;
     const c = this.car.c, w = this.car.w, h = (this.car.m.h * w) / this.car.m.w;
     const x = c.x - w / 2, y = c.y - h * 0.55;
-    this.popup(x, y - h * 0.2, `${name} Lv ${lvl}${gain > 0 ? `  +${gain} PR` : ''}`, true);
+    this.popup(x, y - h * 0.2, `${name} Lv ${lvl}${gain > 0 ? `  +${gain} PR` : ''}`, false);
     if (state.reducedMotion) return;
     const r = 30 * DPR, wrench = this.add.image(x, y, 'wrench').setDisplaySize(r * 2, r * 2).setDepth(6);
     this.tweens.add({ targets: wrench, angle: 360, scale: { from: wrench.scale * 0.4, to: wrench.scale * 1.2 }, alpha: { from: 1, to: 0 }, duration: 650, ease: 'Cubic.easeOut', onComplete: () => wrench.destroy() });

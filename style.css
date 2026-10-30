@@ -40,7 +40,7 @@ html, body {
 #app, #game, #ui, .screen { position: absolute; inset: 0; }
 #game canvas { display: block; width: 100% !important; height: 100% !important; }
 #ui { pointer-events: none; }
-#ui button, .sheet, .modal, .wallet, .car-chip { pointer-events: auto; }
+#ui button, .dock, .modal, .wallet, .car-chip { pointer-events: auto; }
 [hidden] { display: none !important; }
 
 button { font: inherit; color: inherit; border: 0; cursor: pointer; background: none; padding: 0; }
@@ -105,63 +105,6 @@ svg { display: block; }
 .tap-hint.gone, .tap-hint.coached { opacity: 0; }
 @keyframes bob { 50% { transform: translate(-50%, -6px); } }
 
-.nav {
-  position: absolute;
-  left: 50%;
-  bottom: calc(14px + var(--sb));
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-}
-.nav button {
-  min-width: 96px;
-  height: 62px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-weight: 700;
-  font-size: 13px;
-  background: var(--card);
-  transition: transform 0.1s;
-}
-.nav button svg { width: 22px; height: 22px; }
-.nav button.primary { background: linear-gradient(var(--green-hi), var(--green)); box-shadow: 0 3px 0 #1d6e3e; }
-.nav button.active { outline: 2px solid var(--gold); outline-offset: -2px; }
-.nav button:active { transform: translateY(2px); }
-
-.sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: min(58vh, 560px);
-  display: flex;
-  flex-direction: column;
-  border-radius: 20px 20px 0 0;
-  padding-bottom: var(--sb);
-  transform: translateY(105%);
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.sheet.open { transform: none; }
-@media (min-width: 860px) and (orientation: landscape) {
-  .sheet {
-    left: auto;
-    top: calc(80px + var(--st));
-    right: calc(16px + var(--sr));
-    bottom: calc(16px + var(--sb));
-    width: 400px;
-    height: auto;
-    border-radius: var(--radius);
-    transform: translateX(calc(100% + 32px));
-  }
-  .sheet.open { transform: none; }
-}
-.sheet > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 10px 4px 18px; }
-.sheet h2 { margin: 0; font-size: 20px; }
 .tabs { display: flex; gap: 6px; padding: 4px 14px 8px; }
 .tabs:empty { display: none; }
 .tab { flex: 1; height: 38px; border-radius: 10px; background: var(--card); color: var(--muted); font-weight: 700; font-size: 14px; }
@@ -388,7 +331,7 @@ svg { display: block; }
   .race-sub { display: none; }
   .msg { padding: 6px; font-size: 12.5px; }
   .progress { top: calc(66px + var(--st)); }
-  .nav button { height: 52px; }
+  .dock-tabs button { height: 44px; }
   .tap-hint { bottom: calc(86px + var(--sb)); }
 }
 
@@ -414,7 +357,7 @@ svg { display: block; }
 .goal-label { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
 .stars-inline { color: var(--gold); }
 
-.nav button { position: relative; }
+.dock-tabs button { position: relative; }
 .badge { display: none; position: absolute; top: 6px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--panel); }
 .has-badge .badge { display: block; }
 
@@ -651,21 +594,8 @@ body.reduced .coach-target { box-shadow: 0 0 0 3px var(--gold); }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* ------------------------------------------------------------ upgrades beside the car */
+/* ------------------------------------------------------------ upgrades (in the dock) */
 
-.upg-col {
-  position: absolute;
-  top: calc(122px + var(--st));
-  bottom: calc(102px + var(--sb));
-  width: 196px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  pointer-events: none;
-}
-.upg-col.left { left: calc(14px + var(--sl)); }
-.upg-col.right { right: calc(14px + var(--sr)); }
 .upg-btn {
   pointer-events: auto;
   display: grid;
@@ -714,43 +644,6 @@ body.reduced .coach-target { box-shadow: 0 0 0 3px var(--gold); }
 }
 body.reduced .upg-btn.flash { animation: none; }
 
-/* narrow screens (phones upright): compact tiles high on each side; the car sits below them */
-@media (max-width: 760px) {
-  .upg-col { width: 118px; gap: 6px; bottom: auto; top: calc(118px + var(--st)); justify-content: flex-start; }
-  .upg-col.left { left: calc(6px + var(--sl)); }
-  .upg-col.right { right: calc(6px + var(--sr)); }
-  .upg-btn, .upg-btn.rep {
-    grid-template-columns: 26px 1fr auto;
-    grid-template-areas: "icon name name" "icon pips pips" "gain gain cost";
-    gap: 3px 6px;
-    padding: 6px 7px;
-  }
-  .upg-btn.locked, .upg-btn.maxed { grid-template-areas: "icon name name" "icon pips pips" "cost cost cost"; }
-  .ub-icon { width: 26px; height: 26px; border-radius: 7px; }
-  .ub-icon svg { width: 16px; height: 16px; }
-  .ub-name { font-size: 11.5px; }
-  .upg-btn .pips i { height: 4px; }
-  .ub-gain { font-size: 10px; align-self: center; }
-  .ub-cost { font-size: 11.5px; padding: 2px 6px; }
-  .upg-btn.locked .ub-cost { font-size: 10px; max-width: none; justify-self: stretch; justify-content: flex-end; }
-}
-/* short landscape (phones on their side): icon, pips and price only */
-@media (max-height: 520px) and (orientation: landscape) {
-  .upg-col { top: calc(96px + var(--st)); bottom: calc(80px + var(--sb)); width: 124px; gap: 5px; }
-  .upg-btn, .upg-btn.rep {
-    grid-template-columns: 28px 1fr;
-    grid-template-areas: "icon cost" "icon pips";
-    justify-items: stretch;
-    gap: 2px 6px;
-    padding: 5px 7px;
-    text-align: left;
-  }
-  .ub-name, .ub-gain { display: none; }
-  .ub-icon { width: 28px; height: 28px; }
-  .ub-icon svg { width: 17px; height: 17px; }
-  .ub-cost { justify-self: stretch; justify-content: center; font-size: 11.5px; padding: 2px 4px; }
-}
-
 /* ------------------------------------------------------------ race lesson */
 
 .race-dim { position: absolute; inset: 0; background: rgba(8, 12, 20, 0.55); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
@@ -784,3 +677,81 @@ body.reduced .upg-btn.flash { animation: none; }
 .parts-line { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .parts-line span { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--muted); font-size: 11px; font-weight: 700; }
 .parts-line svg { width: 12px; height: 12px; color: var(--gold); }
+
+/* ------------------------------------------------------------ dock: garage left, panel right */
+
+:root { --dock-w: clamp(300px, 30vw, 460px); --dock-h: 0px; }
+.dock {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--dock-w);
+  display: flex;
+  flex-direction: column;
+  background: #151e2c;
+  border-left: 1px solid var(--line);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
+  padding: var(--st) var(--sr) var(--sb) 0;
+}
+.dock-tabs { display: flex; gap: 6px; padding: 12px 12px 8px; }
+.dock-tabs button {
+  flex: 1;
+  height: 58px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-weight: 800;
+  font-size: 13px;
+  background: var(--card);
+  color: var(--muted);
+  transition: transform 0.1s;
+}
+.dock-tabs button svg { width: 22px; height: 22px; }
+.dock-tabs button.active { background: var(--card-2); color: var(--text); outline: 2px solid var(--gold); outline-offset: -2px; }
+.dock-tabs button.primary { background: linear-gradient(var(--green-hi), var(--green)); color: #fff; box-shadow: 0 3px 0 #1d6e3e; }
+.dock-tabs button.primary.active { outline-color: #fff; }
+.dock-tabs button:active { transform: translateY(2px); }
+.dock .sheet-body { padding: 4px 12px 14px; overflow-x: hidden; }
+.dock-head { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 4px 2px -2px; }
+.dock-head b { color: var(--text); }
+.upg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.upg-grid > * { min-width: 0; }
+.ub-name { min-width: 0; }
+.upg-btn { background: var(--card); box-shadow: none; padding: 8px 9px; gap: 3px 8px; grid-template-columns: 32px 1fr auto; }
+.ub-icon { width: 32px; height: 32px; }
+.ub-icon svg { width: 19px; height: 19px; }
+.upg-btn.locked { grid-template-areas: "icon name name" "icon pips pips" "cost cost cost"; }
+.upg-btn.locked .ub-cost { max-width: none; justify-self: end; }
+
+/* the garage view keeps to the left of the dock */
+.topbar { right: calc(var(--dock-w) + 12px); }
+.goal-chip, .tap-hint { left: calc((100% - var(--dock-w)) / 2); }
+.goal-chip { max-width: calc(100% - var(--dock-w) - 24px); }
+.tap-hint { bottom: calc(24px + var(--sb)); }
+
+/* phones held upright: the garage on top, the dock along the bottom */
+@media (orientation: portrait) {
+  :root { --dock-w: 0px; --dock-h: 42vh; }
+  .dock {
+    top: auto; left: 0; width: auto; height: var(--dock-h);
+    border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+    padding: 0 var(--sr) var(--sb) var(--sl);
+  }
+  .dock-tabs { padding: 10px 10px 6px; }
+  .dock-tabs button { height: 48px; flex-direction: row; gap: 6px; font-size: 14px; }
+  .dock-tabs button svg { width: 20px; height: 20px; }
+  .tap-hint { bottom: calc(var(--dock-h) + 12px); }
+}
+/* short landscape (phones on their side): a narrower dock, compact tabs */
+@media (orientation: landscape) and (max-height: 520px) {
+  :root { --dock-w: clamp(260px, 36vw, 360px); }
+  .dock-tabs { padding: 8px 8px 6px; }
+  .dock-tabs button { height: 40px; flex-direction: row; gap: 5px; font-size: 12px; }
+  .dock-tabs button svg { width: 17px; height: 17px; }
+  .upg-grid { gap: 6px; }
+}

@@ -29,21 +29,15 @@
 
         <button class="goal-chip panel" id="goal-chip"></button>
 
-        <div class="upg-col left" id="upg-car" aria-label="Car parts"></div>
-        <div class="upg-col right" id="upg-garage" aria-label="Garage upgrades"></div>
-
         <div class="tap-hint" id="tap-hint">Tap your car to earn cash!</div>
 
-        <nav class="nav panel" id="nav">
-          <button data-panel="cars" id="nav-cars"></button>
-          <button data-panel="races" id="nav-races" class="primary"></button>
-        </nav>
-
-        <section class="sheet panel" id="sheet" aria-hidden="true">
-          <header>
-            <h2 id="sheet-title"></h2>
-            <button class="icon-btn" id="sheet-close" aria-label="Close"></button>
-          </header>
+        <!-- right-hand panel (bottom on phones held upright): upgrades, cars and races -->
+        <section class="dock" id="dock">
+          <nav class="dock-tabs" id="nav">
+            <button data-panel="upgrades" id="nav-upgrades"></button>
+            <button data-panel="cars" id="nav-cars"></button>
+            <button data-panel="races" id="nav-races" class="primary"></button>
+          </nav>
           <div class="tabs" id="sheet-tabs"></div>
           <div class="sheet-body" id="sheet-body"></div>
         </section>
