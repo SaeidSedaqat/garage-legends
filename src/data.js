@@ -142,29 +142,30 @@ const ACE = { name: 'Ace', reaction: [0.2, 0.02], launch: 0.97, shift: { perfect
 
 // `pr` is the opponent's Performance Rating; its car's stats are scaled to hit it.
 // Opponent PRs come from tools/balance.js: a player at the event's recommended PR with
-// Good launches and Good shifts wins about 70% of the time.
+// Good launches and Good shifts wins about 70% of the time. `portrait` is the driver's
+// [x, y, w, h] on assets/portraits.jpg.
 export const OPPONENTS = {
-  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'kaze', tint: [175, 0.45, 0.75] },
-  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 110, ai: STEADY, art: 'kaze', tint: [170, 0.25, 1.1] },
-  mira: { name: 'Mira', carId: 'ronin', pr: 137, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05] },
-  hank: { name: 'Hank', carId: 'ronin', pr: 181, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9] },
-  fox: { name: 'Silver Fox', carId: 'hikari', pr: 219, ai: STEADY, art: 'hikari', tint: [0, 0.08, 1.35] },
-  sol: { name: 'Sol', carId: 'hikari', pr: 262, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15] },
-  marina: { name: 'Marina', carId: 'bulldog', pr: 319, ai: STEADY, art: 'bulldog', tint: [195, 1, 0.65] },
-  rocco: { name: 'Rocco', carId: 'bulldog', pr: 371, ai: SHARP, art: 'bulldog', tint: [100, 0.8, 0.75] },
-  jade: { name: 'Jade', carId: 'kodiak', pr: 447, ai: SHARP, art: 'kodiak', tint: [150, 1, 1.1] },
-  reef: { name: 'Captain Reef', carId: 'valken', pr: 512, ai: SHARP, art: 'valken', tint: [0, 1, 0.6] },
-  neon: { name: 'Neon', carId: 'valken', pr: 549, ai: SHARP, art: 'furia', tint: [-125, 1.15, 1.05] },
-  vex: { name: 'Vex', carId: 'sora', pr: 622, ai: { ...SHARP, launch: 1 }, art: 'sora', tint: [-100, 1.2, 0.8] },
-  duke: { name: 'Duke', carId: 'furia', pr: 718, ai: SHARP, art: 'furia', tint: [-85, 1.1, 0.9] },
-  aria: { name: 'Aria', carId: 'furia', pr: 788, ai: ACE, art: 'furia', tint: [130, 1.1, 1] },
-  legend: { name: 'The Legend', carId: 'volta', pr: 881, ai: ACE, art: 'volta', tint: [0, 1, 0.45] },
+  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'kaze', tint: [175, 0.45, 0.75], portrait: [9, 23, 128, 144] },
+  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 110, ai: STEADY, art: 'kaze', tint: [170, 0.25, 1.1], portrait: [291, 18, 110, 150] },
+  mira: { name: 'Mira', carId: 'ronin', pr: 137, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05], portrait: [429, 26, 106, 143] },
+  hank: { name: 'Hank', carId: 'ronin', pr: 181, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9], portrait: [698, 21, 139, 156] },
+  fox: { name: 'Silver Fox', carId: 'hikari', pr: 219, ai: STEADY, art: 'hikari', tint: [0, 0.08, 1.35], portrait: [846, 23, 113, 144] },
+  sol: { name: 'Sol', carId: 'hikari', pr: 262, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15], portrait: [1110, 22, 120, 147] },
+  marina: { name: 'Marina', carId: 'bulldog', pr: 319, ai: STEADY, art: 'bulldog', tint: [195, 1, 0.65], portrait: [156, 188, 114, 136] },
+  rocco: { name: 'Rocco', carId: 'bulldog', pr: 371, ai: SHARP, art: 'bulldog', tint: [100, 0.8, 0.75], portrait: [839, 190, 121, 134] },
+  jade: { name: 'Jade', carId: 'kodiak', pr: 447, ai: SHARP, art: 'kodiak', tint: [150, 1, 1.1], portrait: [295, 183, 105, 140] },
+  reef: { name: 'Captain Reef', carId: 'valken', pr: 512, ai: SHARP, art: 'valken', tint: [0, 1, 0.6], portrait: [976, 186, 117, 138] },
+  neon: { name: 'Neon', carId: 'valken', pr: 549, ai: SHARP, art: 'furia', tint: [-125, 1.15, 1.05], portrait: [17, 339, 111, 140] },
+  vex: { name: 'Vex', carId: 'sora', pr: 622, ai: { ...SHARP, launch: 1 }, art: 'sora', tint: [-100, 1.2, 0.8], portrait: [155, 347, 111, 132] },
+  duke: { name: 'Duke', carId: 'furia', pr: 718, ai: SHARP, art: 'furia', tint: [-85, 1.1, 0.9], portrait: [292, 344, 107, 135] },
+  aria: { name: 'Aria', carId: 'furia', pr: 788, ai: ACE, art: 'furia', tint: [130, 1.1, 1], portrait: [427, 345, 113, 135] },
+  legend: { name: 'The Legend', carId: 'volta', pr: 881, ai: ACE, art: 'volta', tint: [0, 1, 0.45], portrait: [416, 712, 94, 110] },
   // Legend Series rivals: their PR is set per round (see LEGEND below)
-  storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.6] },
-  ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'volta', tint: [0, 1, 0.8] },
-  blaze: { name: 'Blaze', carId: 'furia', pr: 1000, ai: ACE, art: 'furia', tint: [-60, 1.2, 1] },
-  frost: { name: 'Frost', carId: 'sora', pr: 1000, ai: ACE, art: 'sora', tint: [150, 0.6, 1.2] },
-  crown: { name: 'The Crown', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.3] },
+  storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.6], portrait: [700, 191, 127, 133] },
+  ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'volta', tint: [0, 1, 0.8], portrait: [977, 26, 118, 141] },
+  blaze: { name: 'Blaze', carId: 'furia', pr: 1000, ai: ACE, art: 'furia', tint: [-60, 1.2, 1], portrait: [28, 705, 94, 118] },
+  frost: { name: 'Frost', carId: 'sora', pr: 1000, ai: ACE, art: 'sora', tint: [150, 0.6, 1.2], portrait: [843, 348, 108, 131] },
+  crown: { name: 'The Crown', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.3], portrait: [561, 347, 127, 132] },
 };
 
 // Rewards: `win` when winning (a finish without winning pays LOSS_PCT of it), `first` once on

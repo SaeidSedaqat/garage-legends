@@ -13,7 +13,7 @@ import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
-import { carPreview } from './art.js';
+import { carPreview, portraitURL } from './art.js';
 
 const $ = id => document.getElementById(id);
 
@@ -501,7 +501,7 @@ export function showMatchup(id) {
     <div class="mu-vs">
       <div class="mu-side"><img src="${carPreview(`car-${state.car}`)}" alt=""><div class="mu-name">${car.name}</div><div class="mu-pr">PR ${mine}</div><div class="mu-who">You</div></div>
       <div class="mu-mid">VS</div>
-      <div class="mu-side opp"><img src="${carPreview(`opp-${e.opp}`)}" alt=""><div class="mu-name">${o.name}</div><div class="mu-pr">${o.ai.name}</div><div class="mu-who">Rival</div></div>
+      <div class="mu-side opp"><img src="${carPreview(`opp-${e.opp}`)}" alt="">${portraitURL(o.portrait) ? `<img class="mu-face" src="${portraitURL(o.portrait)}" alt="">` : ""}<div class="mu-name">${o.name}</div><div class="mu-pr">${o.ai.name}</div><div class="mu-who">Rival</div></div>
     </div>
     <div class="mu-verdict ${cls}">${prCheck(e.rec)}<span>${text}</span></div>
     <div class="rows">

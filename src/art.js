@@ -350,6 +350,41 @@ export class CarView {
 
 // Where each piece sits on the garage background, in its source pixels. Every piece is drawn
 // at the background's on-screen scale `s`, so it stays sharp at any window size.
+
+// ---------------------------------------------------------------- painted decor and portraits
+
+// The star decor, painted on assets/decor.jpg ([x, y, w, h] there). Once the sheet is loaded
+// these replace the code-drawn pieces below.
+export const DECOR_SHEET = {
+  key: 'decor-sheet', file: 'assets/decor.jpg',
+  pieces: {
+    shelf: [74, 123, 331, 107], bronze: [530, 69, 177, 195], silver: [915, 69, 171, 196], gold: [136, 295, 183, 224],
+    posterSun: [526, 291, 183, 221], posterFlag: [899, 298, 194, 218],
+    lights: [89, 616, 280, 92], lift: [551, 536, 172, 240], neon: [865, 579, 273, 164],
+  },
+};
+let painted = null;
+export function registerDecor(img) {
+  painted = Object.fromEntries(Object.entries(DECOR_SHEET.pieces).map(([k, crop]) => [k, cutout(img, crop)]));
+}
+
+// Draws `img` as large as fits in the box, centred, standing on the box's bottom edge.
+function fit(x, img, l, t, w, h) {
+  const k = Math.min(w / img.width, h / img.height), dw = img.width * k, dh = img.height * k;
+  x.drawImage(img, l + (w - dw) / 2, t + h - dh, dw, dh);
+}
+
+// Rival portraits, painted on assets/portraits.jpg; each rival's crop is `portrait` in data.js.
+export const PORTRAITS = { key: 'portraits', file: 'assets/portraits.jpg' };
+let portraitSheet = null;
+const portraitCache = new Map();
+export const registerPortraits = img => { portraitSheet = img; };
+export function portraitURL(crop) {
+  if (!portraitSheet || !crop) return null;
+  const id = crop.join(',');
+  if (!portraitCache.has(id)) portraitCache.set(id, cutout(portraitSheet, crop).toDataURL());
+  return portraitCache.get(id);
+}
 export const DECOR = {
   posters: { x: 988, y: 122, w: 156, h: 112 },  // wall right of the door
   shelf: { x: 988, y: 232, w: 156, h: 72 },     // below the posters, above the light switch
@@ -382,6 +417,11 @@ function poster(x, cx, cy, w, h, angle, paint) {
 
 export function drawPosters(s, D = DECOR.posters) {
   const [c, x] = scaled(D, s);
+  if (painted) {
+    fit(x, painted.posterSun, 2, 2, D.w / 2 - 4, D.h - 4);
+    fit(x, painted.posterFlag, D.w / 2 + 2, 6, D.w / 2 - 4, D.h - 8);
+    return c;
+  }
   poster(x, 40, 56, 66, 96, -0.05, (l, t, w, h) => {
     const g = x.createLinearGradient(0, t, 0, t + h);
     g.addColorStop(0, '#2a1d4a'); g.addColorStop(0.55, '#d4604a'); g.addColorStop(1, '#f3b562');
@@ -457,6 +497,14 @@ const GOLD = ['#fff1b0', '#e0a526', '#8a5d0c'], SILVER = ['#ffffff', '#b8c2cc', 
 // The shelf holds a cup per venue champion won (bronze, silver, gold) and a plaque for the first win.
 export function drawShelf(s, champions, D = DECOR.shelf) {
   const [c, x] = scaled(D, s), y = D.h - 14;
+  if (painted) {
+    // the plank fills the width; each championship cup stands on it once won
+    const plank = D.h - 34;
+    x.drawImage(painted.shelf, 4, plank, D.w - 8, 34);
+    const cups = [[painted.bronze, 28], [painted.silver, 32], [painted.gold, 36]];
+    champions.forEach((won, i) => { if (won) fit(x, cups[i][0], D.w * (0.2 + i * 0.3) - 20, plank + 3 - cups[i][1], 40, cups[i][1]); });
+    return c;
+  }
   x.fillStyle = 'rgba(0,0,0,0.3)';
   x.fillRect(6, y + 6, D.w - 12, 4);
   x.fillStyle = '#7a4f2e';
@@ -482,6 +530,12 @@ export function drawShelf(s, champions, D = DECOR.shelf) {
 // Warm bulbs on a sagging wire along the ceiling beam.
 export function drawLights(s, D = DECOR.lights) {
   const [c, x] = scaled(D, s), top = 8;
+  if (painted) {
+    // the painted strand, repeated along the beam
+    const h = D.h - 2, w = (painted.lights.width * h) / painted.lights.height;
+    for (let lx = 0; lx < D.w; lx += w * 0.97) x.drawImage(painted.lights, lx, 0, w, h);
+    return c;
+  }
   const pts = [];
   for (let i = 0; i < D.hooks.length - 1; i++) {
     const x0 = D.hooks[i] - D.x, x1 = D.hooks[i + 1] - D.x, n = Math.round((x1 - x0) / 26);
@@ -516,8 +570,16 @@ export function drawLights(s, D = DECOR.lights) {
 // The pink neon sign; it gets a slow flicker in the scene.
 export function drawNeon(s, D = DECOR.neon) {
   const [c, x] = scaled(D, s);
-  x.fillStyle = 'rgba(20,10,30,0.72)';
-  rrect(x, 8, 6, D.w - 16, D.h - 12, 10);
+  if (painted) {
+    // the painted board stretched to the sign's width: ends kept, middle stretched
+    const img = painted.neon, Sw = img.width, Sh = img.height, cap = Sh * 0.45, k = D.h / Sh;
+    x.drawImage(img, 0, 0, cap, Sh, 0, 0, cap * k, D.h);
+    x.drawImage(img, cap, 0, Sw - cap * 2, Sh, cap * k, 0, D.w - cap * k * 2, D.h);
+    x.drawImage(img, Sw - cap, 0, cap, Sh, D.w - cap * k, 0, cap * k, D.h);
+  } else {
+    x.fillStyle = 'rgba(20,10,30,0.72)';
+    rrect(x, 8, 6, D.w - 16, D.h - 12, 10);
+  }
   x.textAlign = 'center';
   x.textBaseline = 'middle';
   x.font = `italic 900 ${D.h * 0.56}px "Segoe UI", sans-serif`;
@@ -533,6 +595,7 @@ export function drawNeon(s, D = DECOR.neon) {
   tube('#ff8ae6', 2.6, 8);
   tube('#fff0fb', 1, 2);
   x.shadowBlur = 0;
+  if (painted) return c;
   x.strokeStyle = '#38e1ff';
   x.shadowColor = '#38e1ff';
   x.shadowBlur = 10 * s;
@@ -546,6 +609,14 @@ export function drawNeon(s, D = DECOR.neon) {
 // A two-post car lift drawn at a fixed size; the scene scales it to the car.
 export function drawLift() {
   const W = 600, H = 260, c = canvas(W, H), x = c.getContext('2d'), pw = 26;
+  if (painted) {
+    // the painted post on the left, and mirrored on the right, arms pointing in
+    const post = painted.lift, w = (post.width * H) / post.height;
+    x.drawImage(post, 0, 0, w, H);
+    x.setTransform(-1, 0, 0, 1, W, 0);
+    x.drawImage(post, 0, 0, w, H);
+    return c;
+  }
   for (const px of [6, W - pw - 6]) {
     const g = x.createLinearGradient(px, 0, px + pw, 0);
     g.addColorStop(0, '#b8860b'); g.addColorStop(0.4, '#f1c232'); g.addColorStop(1, '#a87a10');

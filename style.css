@@ -810,3 +810,5 @@ body.reduced .upg-btn.flash { animation: none; }
 .car-buy { top: calc(124px + var(--st)); bottom: auto; }
 @media (orientation: landscape) and (max-height: 520px) { .car-buy { top: calc(100px + var(--st)); bottom: auto; } }
 @media (orientation: portrait) { .car-buy { top: calc(118px + var(--st)); bottom: auto; } }
+/* the rival's portrait, a round badge overlapping the bottom of their car */
+.mu-side img.mu-face { width: 64px; height: 64px; object-fit: cover; object-position: top; border-radius: 50%; margin: -30px auto 4px; background: #2b3c55; border: 3px solid #ff8a7d; box-shadow: var(--shadow); transform: none; position: relative; }

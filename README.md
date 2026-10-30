@@ -125,8 +125,12 @@ To get there:
   and `assets/cars-pose.webp` (garage views). Crops and wheel circles are in `ART` in
   `src/data.js`. Every rival drives one of these models in its own colours (`tint`).
 - Sounds are synthesized in code.
+- Rival portraits are on `assets/portraits.jpg` (`portrait` crops in `OPPONENTS`) and show on
+  the pre-race screen. Upgrade part icons are still simple line icons.
 - Every car has its own themed scene (`assets/scene-<car>.jpg`, `SCENES` in `src/art.js`, with
   crops and floor lines). The one for the car you drive loads at startup, the rest in the
   background; the old garage (`bg-garage.jpg`) only shows while a scene is still loading.
-  Star-milestone decor is drawn in code (`DECOR`) and lives in the Kaze's hometown garage.
+  Star-milestone decor (shelf and cups, posters, lights, car lift, neon sign) is painted on
+  `assets/decor.jpg` (`DECOR_SHEET`) and lives in the Kaze's hometown garage; the LEGEND
+  letters are drawn in code so they stay crisp.
 - Not built yet from the GDD: portal adapters.
