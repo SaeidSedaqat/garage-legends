@@ -109,7 +109,27 @@ export const sfx = {
 
 // A recorded engine loop whose playback speed (and so its pitch) follows the RPM. The player's
 // car and the rival each get one; `level` scales how loud it is.
-const engineRate = rpm => Math.min(2.6, Math.max(0.5, 0.45 + rpm / 4200));
+//
+// The recording is nearly all deep rumble (below 200 Hz), which phone and laptop speakers can't
+// play. A soft overdrive adds its overtones, which the ear hears as the same engine and small
+// speakers do play; a high-pass then drops the sub-bass that would only muddy the mix.
+const engineRate = rpm => Math.min(3, Math.max(0.85, 0.6 + rpm / 3500));
+let driveCurve = null;
+function engineVoice(c) {
+  if (!driveCurve) {
+    driveCurve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; driveCurve[i] = Math.tanh(x * 6) / Math.tanh(6); }
+  }
+  const drive = c.createWaveShaper(), low = c.createBiquadFilter(), tone = c.createBiquadFilter();
+  drive.curve = driveCurve;
+  drive.oversample = '2x';
+  low.type = 'highpass';
+  low.frequency.value = 120;
+  tone.type = 'lowpass';
+  tone.frequency.value = 3000;
+  drive.connect(low).connect(tone);
+  return { input: drive, output: tone, tone };
+}
 function makeEngine(level) {
   return {
     nodes: null,
@@ -118,24 +138,24 @@ function makeEngine(level) {
       this.wanted = true;
       const c = ac();
       if (!c || this.nodes || !buffers.engine) return;
-      const src = c.createBufferSource(), filter = c.createBiquadFilter(), out = c.createGain();
+      const src = c.createBufferSource(), voice = engineVoice(c), out = c.createGain();
       src.buffer = buffers.engine;
       src.loop = true;
-      // the rival's loop starts at another point, so the two engines don't phase together
-      filter.type = 'lowpass';
-      filter.frequency.value = 1200;
       out.gain.value = 0;
-      src.connect(filter).connect(out).connect(sfxBus);
+      src.connect(voice.input);
+      voice.output.connect(out).connect(sfxBus);
+      // the rival's loop starts at another point, so the two engines don't phase together
       src.start(0, level < 1 ? buffers.engine.duration / 2 : 0);
       out.gain.setTargetAtTime(0.35 * level, c.currentTime, 0.1);
-      this.nodes = { src, filter, out };
+      this.nodes = { src, filter: voice.tone, out };
     },
     set(rpm, load) {
       if (!this.nodes) return;
       const t = ctx.currentTime;
       this.nodes.src.playbackRate.setTargetAtTime(engineRate(rpm), t, 0.03);
-      this.nodes.filter.frequency.setTargetAtTime(700 + load * 3000, t, 0.05);
-      this.nodes.out.gain.setTargetAtTime((0.2 + load * 0.25) * level, t, 0.05);
+      // under load the engine opens up: brighter and louder
+      this.nodes.filter.frequency.setTargetAtTime(1800 + load * 5000, t, 0.05);
+      this.nodes.out.gain.setTargetAtTime((0.32 + load * 0.18) * level, t, 0.05);
     },
     pause(on) {
       if (this.nodes) this.nodes.out.gain.setTargetAtTime(on ? 0 : 0.35 * level, ctx.currentTime, 0.05);
@@ -158,16 +178,18 @@ const engines = [engine, rivalEngine];
 export function revBlip() {
   const c = ac();
   if (!c || !buffers.engine) return;
-  const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
+  const src = c.createBufferSource(), voice = engineVoice(c), g = c.createGain(), t = c.currentTime;
   src.buffer = buffers.engine;
   src.loop = true;
-  src.playbackRate.setValueAtTime(0.6, t);
-  src.playbackRate.linearRampToValueAtTime(1.9, t + 0.35);
-  src.playbackRate.linearRampToValueAtTime(0.65, t + 1.1);
+  src.playbackRate.setValueAtTime(0.8, t);
+  src.playbackRate.linearRampToValueAtTime(2.4, t + 0.35);
+  src.playbackRate.linearRampToValueAtTime(0.85, t + 1.1);
+  voice.tone.frequency.setValueAtTime(6000, t);
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(0.4, t + 0.08);
   g.gain.setTargetAtTime(0, t + 0.8, 0.15);
-  src.connect(g).connect(sfxBus);
+  src.connect(voice.input);
+  voice.output.connect(g).connect(sfxBus);
   src.start(t);
   src.stop(t + 1.6);
 }
