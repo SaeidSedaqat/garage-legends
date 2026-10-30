@@ -68,11 +68,31 @@ function keyOut(img, [cx, cy, cw, ch], flip = false) {
   x.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
   x.setTransform(1, 0, 0, 1, 0, 0);
 
-  const px = x.getImageData(0, 0, cw, ch), d = px.data;
+  const px = x.getImageData(0, 0, cw, ch), d = px.data, n = cw * ch;
   const K = [243, 56, 243];
+  const tOf = new Float32Array(n);
+  for (let p = 0; p < n; p++) { const i = p * 4; tOf[p] = Math.min(1, Math.max(0, (Math.min(d[i], d[i + 2]) - d[i + 1] - KEY_LO) / (KEY_HI - KEY_LO))); }
+  // Purple-tinted glass looks a bit like the background. Only pinkish pixels joined to real
+  // background (fully magenta) are keyed out; tinted glass enclosed by the body is kept.
+  const outside = new Uint8Array(n), stack = [];
+  for (let p = 0; p < n; p++) if (tOf[p] === 1) { outside[p] = 1; stack.push(p); }
+  while (stack.length) {
+    const p = stack.pop(), px0 = p % cw;
+    for (const q of [p - 1, p + 1, p - cw, p + cw]) {
+      if (q < 0 || q >= n || outside[q] || !tOf[q] || (q === p - 1 && px0 === 0) || (q === p + 1 && px0 === cw - 1)) continue;
+      outside[q] = 1;
+      stack.push(q);
+    }
+  }
   for (let i = 0; i < d.length; i += 4) {
-    const t = Math.min(1, Math.max(0, (Math.min(d[i], d[i + 2]) - d[i + 1] - KEY_LO) / (KEY_HI - KEY_LO)));
+    const p = i / 4, t = tOf[p];
     if (t === 0) continue;
+    if (!outside[p]) {
+      // enclosed glass: a cool smoky grey instead of purple
+      const v = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      d[i] = v * 0.88; d[i + 1] = v * 0.95; d[i + 2] = Math.min(255, v * 1.12);
+      continue;
+    }
     if (t === 1) { d[i + 3] = 0; continue; }
     // un-mix the background from edge pixels, then pull any remaining pink back to neutral
     for (let k = 0; k < 3; k++) d[i + k] = Math.min(255, Math.max(0, (d[i + k] - t * K[k]) / (1 - t)));

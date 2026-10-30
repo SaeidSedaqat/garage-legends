@@ -118,10 +118,11 @@ To get there:
   `src/data.js`), so a level stays within a minute or two of income and gets bought often: the bot
   buys about 34 Tap Power levels on the way to City Champion.
 
-## Placeholders
+## Art and placeholders
 
-- Cars 4–10 and most rivals are recolors of the existing car art (`tint` in `src/data.js`).
-  Drop in real art and point the car's `art` at it.
+- All 10 cars are original designs on two sheets: `assets/cars-side.webp` (race side views)
+  and `assets/cars-pose.webp` (garage views). Crops and wheel circles are in `ART` in
+  `src/data.js`. Every rival drives one of these models in its own colours (`tint`).
 - Sounds are synthesized in code.
 - Garage decor is drawn in code (`src/art.js`, `DECOR`) until it gets real art.
 - Not built yet from the GDD: portal adapters.

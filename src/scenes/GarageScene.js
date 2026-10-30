@@ -101,8 +101,8 @@ export class GarageScene extends Phaser.Scene {
   placeCar(animate) {
     if (!this.car) return;
     const f = ui.garageFocus();
-    // never wider than the art itself, so the car stays sharp
-    const w = Math.min(Math.min(f.w * (f.w < f.h ? 0.9 : 0.72), f.h * 1.4) * DPR, this.car.m.w);
+    // at most a little wider than the art itself, so the car stays sharp
+    const w = Math.min(Math.min(f.w * (f.w < f.h ? 0.9 : 0.72), f.h * 1.4) * DPR, this.car.m.w * 1.3);
     const x = (f.x + f.w / 2) * DPR + w / 2;
     const y = Math.max(this.floorY + w * 0.2, Math.min(this.groundY, (f.y + f.h) * DPR - 4 * DPR));
     const scrollY = 0;

@@ -3,32 +3,58 @@
 // ---------------------------------------------------------------- art sources
 
 // Car art: `crop` is [x, y, w, h] and `wheels` are [x, y, radius], both in source-image pixels.
+// All ten cars are original designs on two sheets: side views for races, three-quarter
+// showroom poses for the garage.
+const SIDE = 'cars-side.webp';
 const sprite = (file, crop, wheels, flip = false) => ({ file: `assets/${file}`, crop, wheels, flip });
-// Three-quarter showroom pose used in the garage and the Cars menu.
-const pose = crop => ({ file: 'assets/garage-cars.jpg', crop });
+const pose = crop => ({ file: 'assets/cars-pose.webp', crop });
 
 export const ART = {
   kaze: {
-    side: sprite('car-kaze-hatch.jpg', [65, 111, 1291, 593], [[262, 585, 115], [1135, 585, 115]]),
-    pose: pose([423, 9, 598, 255]),
+    side: sprite(SIDE, [73, 54, 447, 194], [[139, 202, 42], [424, 202, 43]]),
+    pose: pose([99, 36, 437, 220]),
   },
   ronin: {
-    side: sprite('car-ronin-compact.jpg', [38, 156, 1352, 548], [[262, 586, 114], [1135, 585, 115]]),
-    pose: pose([377, 265, 652, 246]),
+    side: sprite(SIDE, [651, 60, 538, 186], [[759, 199, 44], [1065, 197, 46]]),
+    pose: pose([654, 43, 517, 216]),
   },
   hikari: {
-    side: sprite('car-hikari-coupe.jpg', [26, 172, 1362, 530], [[262, 584, 114], [1137, 584, 114]]),
-    pose: pose([353, 514, 699, 247]),
+    side: sprite(SIDE, [45, 295, 547, 172], [[150, 421, 43], [465, 423, 41]]),
+    pose: pose([55, 279, 533, 201]),
   },
-  rusty: { side: sprite('opp-rusty.jpg', [22, 171, 1367, 533], [[273, 585, 115], [1137, 584, 115]]) },
-  dusty: { side: sprite('opp-dusty-fox.jpg', [292, 15, 824, 395], [[426, 339, 67], [955, 340, 66]]) },
-  fox: { side: sprite('opp-dusty-fox.jpg', [231, 422, 1036, 325], [[440, 662, 81], [1054, 661, 82]], true) },
+  bulldog: {
+    side: sprite(SIDE, [643, 292, 564, 179], [[764, 419, 49], [1089, 423, 43]]),
+    pose: pose([644, 283, 565, 204]),
+  },
+  kodiak: {
+    side: sprite(SIDE, [52, 510, 502, 209], [[144, 664, 51], [448, 666, 50]]),
+    pose: pose([65, 493, 503, 237]),
+  },
+  valken: {
+    side: sprite(SIDE, [630, 538, 587, 171], [[740, 658, 48], [1090, 661, 45]]),
+    pose: pose([638, 532, 571, 196]),
+  },
+  sora: {
+    side: sprite(SIDE, [51, 771, 522, 169], [[150, 894, 43], [452, 896, 41]]),
+    pose: pose([57, 761, 512, 183]),
+  },
+  furia: {
+    side: sprite(SIDE, [638, 770, 578, 171], [[732, 892, 46], [1080, 892, 46]]),
+    pose: pose([641, 768, 562, 185]),
+  },
+  volta: {
+    side: sprite(SIDE, [36, 1000, 556, 168], [[124, 1119, 45], [466, 1124, 41]]),
+    pose: pose([41, 985, 556, 192]),
+  },
+  apex: {
+    side: sprite(SIDE, [632, 1006, 589, 172], [[729, 1121, 49], [1071, 1132, 43]]),
+    pose: pose([638, 986, 580, 213]),
+  },
 };
 
 // ---------------------------------------------------------------- cars (GDD §4.2)
 
-// `art` names a source above; `tint` is [hue shift°, saturation ×, lightness ×] for placeholder
-// recolors until a car gets its own art. `redlineRpm` is for display only.
+// `art` names a source above. `redlineRpm` is for display only.
 export const CARS = [
   {
     id: 'kaze', tier: 1, name: 'Kaze Hatch', tagline: 'Simple, reliable, ready for the journey.', niche: 'Forgiving starter',
@@ -51,43 +77,43 @@ export const CARS = [
   {
     id: 'bulldog', tier: 4, name: "Bulldog '70", tagline: 'Raw power and timeless appeal.', niche: 'Huge mid-range punch, wheelspin-prone launch',
     price: 8000, stats: { launch: 24, accel: 32, topSpeed: 30, shiftWindow: 0.62, gears: 4 }, upgradeBase: 200, redlineRpm: 6200,
-    launchQuirk: 'wheelspin', art: 'ronin', tint: [28, 1.15, 1.05],
+    launchQuirk: 'wheelspin', art: 'bulldog',
     parts: ['bigblock', 'supercharger', 'slicks', 'gearbox'],
   },
   {
     id: 'kodiak', tier: 5, name: 'Kodiak Rally', tagline: 'Built for grip, not just straight lines.', niche: 'Best launch for its tier, rules the quarter mile',
     price: 18000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 400, redlineRpm: 7800,
-    art: 'kaze', tint: [12, 1.5, 0.72],
+    art: 'kodiak',
     parts: ['engine', 'turbo', 'awd', 'gearbox'],
   },
   {
     id: 'valken', tier: 6, name: 'Valken GT', tagline: 'Power, precision, all around.', niche: 'All-rounder, strong at the half mile',
     price: 40000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 1000, redlineRpm: 7600,
-    art: 'hikari', tint: [0, 0.12, 1.2],
+    art: 'valken',
     parts: ['engine', 'aero', 'tires', 'nitrous'],
   },
   {
     id: 'sora', tier: 7, name: 'Sora Roadster', tagline: 'Lightweight fun, maximum feel.', niche: 'Widest shift window, the easiest perfect runs',
     price: 120000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 3000, redlineRpm: 8000,
-    art: 'ronin', tint: [48, 1.2, 1.15],
+    art: 'sora',
     parts: ['engine', 'weight', 'tires', 'gearbox'],
   },
   {
     id: 'furia', tier: 8, name: 'Furia V10', tagline: "Speed isn't a dream anymore.", niche: 'Top-speed monster, demanding shifts',
     price: 220000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 7500, redlineRpm: 8500,
-    art: 'hikari', tint: [-85, 1.5, 1.2],
+    art: 'furia',
     parts: ['engine', 'aero', 'slicks', 'seqbox'], partNames: { engine: 'V10 Tune' },
   },
   {
     id: 'volta', tier: 9, name: 'Volta X', tagline: "The edge of what's possible.", niche: 'Mile specialist',
     price: 1000000, stats: { launch: 86, accel: 90, topSpeed: 94, shiftWindow: 0.7, gears: 7 }, upgradeBase: 11500, redlineRpm: 9000,
-    art: 'hikari', tint: [0, 0.08, 1.55],
+    art: 'volta',
     parts: ['motor', 'battery', 'tires', 'gearbox'], partNames: { gearbox: 'Drive Unit' },
   },
   {
     id: 'apex', tier: 10, name: 'Apex Zero', tagline: 'A machine for the few.', niche: 'The ultimate',
     price: 2500000, requires: 'city_5', stats: { launch: 96, accel: 100, topSpeed: 100, shiftWindow: 0.76, gears: 7 }, upgradeBase: 25000, redlineRpm: 9500,
-    art: 'hikari', tint: [0, 0.3, 0.42],
+    art: 'apex',
     parts: ['engine', 'hybrid', 'aero', 'seqbox'],
   },
 ];
@@ -118,27 +144,27 @@ const ACE = { name: 'Ace', reaction: [0.2, 0.02], launch: 0.97, shift: { perfect
 // Opponent PRs come from tools/balance.js: a player at the event's recommended PR with
 // Good launches and Good shifts wins about 70% of the time.
 export const OPPONENTS = {
-  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'rusty' },
-  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 110, ai: STEADY, art: 'dusty' },
+  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'kaze', tint: [175, 0.45, 0.75] },
+  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 110, ai: STEADY, art: 'kaze', tint: [170, 0.25, 1.1] },
   mira: { name: 'Mira', carId: 'ronin', pr: 137, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05] },
   hank: { name: 'Hank', carId: 'ronin', pr: 181, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9] },
-  fox: { name: 'Silver Fox', carId: 'hikari', pr: 219, ai: STEADY, art: 'fox' },
+  fox: { name: 'Silver Fox', carId: 'hikari', pr: 219, ai: STEADY, art: 'hikari', tint: [0, 0.08, 1.35] },
   sol: { name: 'Sol', carId: 'hikari', pr: 262, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15] },
-  marina: { name: 'Marina', carId: 'bulldog', pr: 319, ai: STEADY, art: 'ronin', tint: [-60, 1.1, 0.9] },
-  rocco: { name: 'Rocco', carId: 'bulldog', pr: 371, ai: SHARP, art: 'rusty', tint: [180, 0.6, 0.9] },
-  jade: { name: 'Jade', carId: 'kodiak', pr: 447, ai: SHARP, art: 'dusty', tint: [100, 1.2, 0.9] },
-  reef: { name: 'Captain Reef', carId: 'valken', pr: 512, ai: SHARP, art: 'fox', tint: [0, 0.2, 1.25] },
-  neon: { name: 'Neon', carId: 'valken', pr: 549, ai: SHARP, art: 'hikari', tint: [130, 1.6, 1.1] },
-  vex: { name: 'Vex', carId: 'sora', pr: 622, ai: { ...SHARP, launch: 1 }, art: 'ronin', tint: [-100, 1.3, 0.75] },
-  duke: { name: 'Duke', carId: 'furia', pr: 718, ai: SHARP, art: 'hikari', tint: [-170, 1.2, 0.85] },
-  aria: { name: 'Aria', carId: 'furia', pr: 788, ai: ACE, art: 'fox', tint: [-60, 1.2, 1.1] },
-  legend: { name: 'The Legend', carId: 'volta', pr: 881, ai: ACE, art: 'hikari', tint: [15, 1.3, 1.25] },
+  marina: { name: 'Marina', carId: 'bulldog', pr: 319, ai: STEADY, art: 'bulldog', tint: [195, 1, 0.65] },
+  rocco: { name: 'Rocco', carId: 'bulldog', pr: 371, ai: SHARP, art: 'bulldog', tint: [100, 0.8, 0.75] },
+  jade: { name: 'Jade', carId: 'kodiak', pr: 447, ai: SHARP, art: 'kodiak', tint: [150, 1, 1.1] },
+  reef: { name: 'Captain Reef', carId: 'valken', pr: 512, ai: SHARP, art: 'valken', tint: [0, 1, 0.6] },
+  neon: { name: 'Neon', carId: 'valken', pr: 549, ai: SHARP, art: 'furia', tint: [-125, 1.15, 1.05] },
+  vex: { name: 'Vex', carId: 'sora', pr: 622, ai: { ...SHARP, launch: 1 }, art: 'sora', tint: [-100, 1.2, 0.8] },
+  duke: { name: 'Duke', carId: 'furia', pr: 718, ai: SHARP, art: 'furia', tint: [-85, 1.1, 0.9] },
+  aria: { name: 'Aria', carId: 'furia', pr: 788, ai: ACE, art: 'furia', tint: [130, 1.1, 1] },
+  legend: { name: 'The Legend', carId: 'volta', pr: 881, ai: ACE, art: 'volta', tint: [0, 1, 0.45] },
   // Legend Series rivals: their PR is set per round (see LEGEND below)
-  storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'hikari', tint: [0, 1.3, 0.75] },
-  ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'fox', tint: [0, 0.05, 1.35] },
-  blaze: { name: 'Blaze', carId: 'furia', pr: 1000, ai: ACE, art: 'ronin', tint: [0, 1.3, 0.95] },
-  frost: { name: 'Frost', carId: 'sora', pr: 1000, ai: ACE, art: 'kaze', tint: [-25, 0.6, 1.3] },
-  crown: { name: 'The Crown', carId: 'apex', pr: 1000, ai: ACE, art: 'ronin', tint: [40, 1.1, 1.2] },
+  storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.6] },
+  ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'volta', tint: [0, 1, 0.8] },
+  blaze: { name: 'Blaze', carId: 'furia', pr: 1000, ai: ACE, art: 'furia', tint: [-60, 1.2, 1] },
+  frost: { name: 'Frost', carId: 'sora', pr: 1000, ai: ACE, art: 'sora', tint: [150, 0.6, 1.2] },
+  crown: { name: 'The Crown', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.3] },
 };
 
 // Rewards: `win` when winning (a finish without winning pays LOSS_PCT of it), `first` once on
