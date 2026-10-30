@@ -812,3 +812,9 @@ body.reduced .upg-btn.flash { animation: none; }
 @media (orientation: portrait) { .car-buy { top: calc(118px + var(--st)); bottom: auto; } }
 /* the rival's portrait, a round badge overlapping the bottom of their car */
 .mu-side img.mu-face { width: 64px; height: 64px; object-fit: cover; object-position: top; border-radius: 50%; margin: -30px auto 4px; background: #2b3c55; border: 3px solid #ff8a7d; box-shadow: var(--shadow); transform: none; position: relative; }
+/* painted part icons: no tile behind them, a little larger */
+.ub-icon.art, .upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep):not(.preview) .ub-icon.art { background: none; width: 40px; height: 40px; }
+.ub-icon.art img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)); }
+.upg-btn { grid-template-columns: 40px 1fr auto; }
+.upg-btn.preview { grid-template-columns: 40px 1fr; }
+.upg-btn.locked .ub-icon.art img, .upg-btn.poor .ub-icon.art img { filter: grayscale(0.5) brightness(0.85); }

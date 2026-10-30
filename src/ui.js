@@ -13,7 +13,7 @@ import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted } from './audio.js';
-import { carPreview, portraitURL } from './art.js';
+import { carPreview, partIconURL, portraitURL } from './art.js';
 
 const $ = id => document.getElementById(id);
 
@@ -288,11 +288,11 @@ function partEffect(id) {
 }
 
 // One upgrade: icon, name, what it does, level pips, what the next level adds, and its price.
-function upgButton({ action, id, icon, name, desc, effect, lvl, max, gain, cost, lock, tag }) {
+function upgButton({ action, id, icon, img, name, desc, effect, lvl, max, gain, cost, lock, tag }) {
   const kind = tag ? 'rep' : lock ? 'locked' : cost == null ? 'maxed' : '';
   const price = tag || (lock ? `${ICONS.lock}<span>${lock}</span>` : cost == null ? 'MAX' : fmt(cost));
   return `<button class="upg-btn ${kind}" data-action="${action}" data-id="${id}"${kind ? '' : ` data-cost="${cost}"`}${lock ? ` data-lock="${lock}"` : ''}>
-    <span class="ub-icon">${ICONS[icon]}</span>
+    <span class="ub-icon${img ? ' art' : ''}">${img ? `<img src="${img}" alt="">` : ICONS[icon]}</span>
     <span class="ub-name">${name}${lvl != null ? ` <small>Lv ${lvl}${max ? `/${max}` : ''}</small>` : ''}</span>
     <span class="ub-desc">${desc}${effect ? `<em>${effect}</em>` : ''}</span>
     ${lvl != null && max ? pips(lvl, max) : ''}
@@ -307,7 +307,7 @@ function renderUpgrades() {
   const car = carDef(shownCar());
   if (viewing) {
     const parts = car.parts.map(id => `<div class="upg-btn preview">
-      <span class="ub-icon">${ICONS[PARTS[id].icon]}</span><span class="ub-name">${partName(car, id)}</span>
+      <span class="ub-icon art"><img src="${partIconURL(id)}" alt=""></span><span class="ub-name">${partName(car, id)}</span>
       <span class="ub-desc">${PARTS[id].desc}<em>${partEffect(id)}</em></span></div>`).join('');
     return `<div class="dock-head">${car.name}'s parts</div><p class="hint">Buy the ${car.name} to fit these. Each car has its own set.</p><div class="upg-grid">${parts}</div>`;
   }
@@ -316,7 +316,7 @@ function renderUpgrades() {
     const p = PARTS[id], cost = upgradeCost(id), lock = upgradeLock(id);
     const d = cost != null && !lock ? pr(previewSpec(id)) - now : 0;
     return upgButton({
-      action: 'upgrade', id, icon: p.icon, name: partName(car, id), desc: p.desc, effect: partEffect(id),
+      action: 'upgrade', id, icon: p.icon, img: partIconURL(id), name: partName(car, id), desc: p.desc, effect: partEffect(id),
       lvl: upgradeLevel(id), max: PART_LEVELS, gain: d > 0 ? `+${d} PR` : '', cost, lock: lock?.replace('Needs ', ''),
     });
   }).join('');

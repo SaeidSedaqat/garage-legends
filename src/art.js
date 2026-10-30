@@ -350,6 +350,47 @@ export function portraitURL(crop) {
   return portraitCache.get(id);
 }
 
+// ---------------------------------------------------------------- upgrade icons and wrench
+
+// Painted upgrade part icons on assets/parts.jpg ([x, y, w, h] there). Tires and Drag Slicks
+// use the tyre stack on the portrait sheet, and the Golden Wrench is that sheet's wrench in gold.
+export const PART_ICONS = {
+  key: 'part-icons', file: 'assets/parts.jpg',
+  crops: {
+    engine: [56, 80, 195, 183], bigblock: [287, 77, 193, 187], turbo: [514, 97, 186, 155], supercharger: [733, 88, 197, 173],
+    awd: [949, 84, 245, 183], gearbox: [95, 326, 106, 167], seqbox: [300, 326, 148, 172], exhaust: [500, 337, 213, 159],
+    ecu: [735, 352, 186, 129], aero: [950, 334, 243, 161], weight: [58, 564, 187, 162], nitrous: [320, 546, 115, 191],
+    motor: [510, 572, 184, 144], battery: [761, 552, 129, 183], hybrid: [954, 570, 227, 148],
+  },
+  tyre: [843, 624, 91, 77],     // on the portrait sheet
+  wrench: [27, 611, 89, 91],    // on the portrait sheet
+};
+let partSheet = null;
+const iconCache = new Map();
+export const registerPartIcons = img => { partSheet = img; };
+export function partIconURL(id) {
+  const tyre = id === 'tires' || id === 'slicks';
+  const sheet = tyre ? portraitSheet : partSheet, crop = tyre ? PART_ICONS.tyre : PART_ICONS.crops[id];
+  if (!sheet || !crop) return null;
+  if (!iconCache.has(id)) iconCache.set(id, cutout(sheet, crop).toDataURL());
+  return iconCache.get(id);
+}
+
+// The painted steel wrench, recoloured gold by brightness (dark outlines stay dark).
+export function paintedWrench() {
+  if (!portraitSheet) return null;
+  const c = cutout(portraitSheet, PART_ICONS.wrench), x = c.getContext('2d');
+  const px = x.getImageData(0, 0, c.width, c.height), d = px.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255;
+    d[i] = Math.min(255, 60 + l * 240);
+    d[i + 1] = Math.min(255, 35 + l * 200);
+    d[i + 2] = Math.min(255, 8 + l * 70);
+  }
+  x.putImageData(px, 0, 0);
+  return c;
+}
+
 // ---------------------------------------------------------------- scenery
 
 // Grass verge and asphalt below the horizon. `o` holds y offsets measured from the horizon.
