@@ -566,7 +566,8 @@ body.reduced .coach-target { box-shadow: 0 0 0 3px var(--gold); }
 .row:last-child { border-bottom: 0; }
 .row span:last-child { font-weight: 800; font-variant-numeric: tabular-nums; }
 .row .plus { color: var(--green-hi); }
-.unlock { margin: 10px 0; padding: 10px; border-radius: 12px; background: rgba(241, 180, 52, 0.14); color: var(--gold); font-weight: 800; }
+.unlock { margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: rgba(241, 180, 52, 0.14); color: var(--gold); font-weight: 800; }
+.unlock.trophy { background: linear-gradient(90deg, #4a3510, #2a2010); font-size: 13.5px; }
 .tip { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
 .actions { display: flex; gap: 10px; margin-top: 16px; }
 .actions .btn { flex: 1; height: 50px; }
@@ -805,7 +806,10 @@ body.reduced .upg-btn.flash { animation: none; }
   .race-btn svg { width: 21px; height: 21px; }
   .car-buy { bottom: calc(var(--dock-h) + 72px); padding: 9px 12px; }
   .car-arrow { width: 44px; height: 44px; }
+  /* beside the RACE button, under the car rather than over it */
+  .tap-hint { left: auto; right: 12px; bottom: calc(var(--dock-h) + 22px); transform: none; font-size: 13px; padding: 7px 13px; animation-name: bob-y; }
 }
+@keyframes bob-y { 50% { transform: translateY(-5px); } }
 /* the buy card sits up under the goal chip, over the scenery rather than the car */
 .car-buy { top: calc(124px + var(--st)); bottom: auto; }
 @media (orientation: landscape) and (max-height: 520px) { .car-buy { top: calc(100px + var(--st)); bottom: auto; } }
@@ -826,3 +830,45 @@ body.reduced .upg-btn.flash { animation: none; }
 @media (orientation: portrait) { .race-btn .art-icon { width: 30px; height: 30px; } }
 .credits { margin: 12px 0 4px; font-size: 11.5px; line-height: 1.45; color: var(--muted); text-align: left; }
 .credits b { display: block; color: var(--text); font-size: 12px; margin-bottom: 2px; }
+/* ------------------------------------------------------------ race button, cooldown, test ads */
+.race-dock {
+  position: absolute;
+  left: calc(16px + var(--sl));
+  bottom: calc(var(--dock-h) + 16px + var(--sb));
+  display: flex; align-items: center; gap: 10px;
+}
+.race-dock .race-btn { position: static; }
+.race-btn .rb-text { display: grid; line-height: 1.05; text-align: left; }
+.race-btn .rb-text small { font-size: 11.5px; font-weight: 800; letter-spacing: 0; text-transform: none; opacity: 0.9; }
+.race-btn .rb-text small.short { color: #ffe08a; }
+.race-btn.cooling { background: linear-gradient(#5b6b80, #3f4c5e); box-shadow: 0 5px 0 #2a3442, var(--shadow); }
+.race-btn.cooling b { font-variant-numeric: tabular-nums; }
+.race-ad {
+  height: 48px; padding: 0 14px; border-radius: 14px;
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 900; font-size: 14px; color: #1b1405;
+  background: linear-gradient(#ffd767, #f1b434); box-shadow: 0 4px 0 #a5741a, var(--shadow);
+}
+.race-ad svg { width: 18px; height: 18px; }
+.race-ad:active { transform: translateY(3px); box-shadow: 0 1px 0 #a5741a, var(--shadow); }
+@media (orientation: landscape) and (max-height: 520px) { .race-dock { bottom: calc(12px + var(--sb)); } }
+@media (orientation: portrait) {
+  .race-dock { bottom: calc(var(--dock-h) + 12px); gap: 8px; }
+  .race-ad { height: 42px; padding: 0 11px; font-size: 13px; }
+  .race-btn .rb-text small { font-size: 10.5px; }
+}
+.btn.ad { background: linear-gradient(#ffd767, #f1b434); color: #1b1405; }
+.btn.ad svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.btn.wide + .btn.wide { margin-top: 8px; }
+.result-ad { margin-top: 12px; width: 100%; height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.result-ad:disabled { opacity: 0.7; }
+
+.test-ad { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(4, 6, 12, 0.92); }
+.test-ad-card { width: min(360px, 86vw); padding: 28px 22px; border-radius: 18px; text-align: center; display: grid; gap: 10px; background: #1b2433; border: 2px dashed #f1b434; color: #f4efe6; }
+.test-ad-card small { font-weight: 800; letter-spacing: 0.12em; color: #f1b434; }
+.test-ad-card b { font-size: 24px; }
+.test-ad-count { font-size: 44px; font-weight: 900; }
+.test-ad-bar { display: block; height: 6px; border-radius: 3px; background: #f1b434; transform-origin: left; animation: test-ad-fill linear forwards; }
+@keyframes test-ad-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* on phones the tap hint shares the row with RACE; it steps aside while the ad button is there */
+@media (orientation: portrait) { .tap-hint.beside-ad { opacity: 0; } }

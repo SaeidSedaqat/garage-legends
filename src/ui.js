@@ -3,17 +3,18 @@
 import {
   state, changed, carDef, tunedSpec, carPR, stockPR, previewSpec, upgradeLevel, upgradeCost, upgradeLock, buyUpgrade,
   carLock, buyCar, selectCar, totalStars, clickValue, autoRate, autoUnlocked, garageCost, buyGarage,
-  envUnlocked, eventUnlocked, latestEvent, eventDef, legendUnlocked, legendEvent, resetSave, achievementProgress,
+  nextRace, raceCooldown, skipCooldown, bonusPayout, resetSave, achievementProgress,
 } from './state.js';
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, AUTO_UNLOCK, MILESTONES, MEDALS, STAR_BONUS, LEGEND,
+  CARS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, AUTO_UNLOCK, MILESTONES, STAR_BONUS,
   ACHIEVEMENTS,
 } from './data.js';
 import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
 import { bus } from './events.js';
 import { sfx, setMuted, setMusic } from './audio.js';
-import { carPreview, partIconURL, portraitURL, uiIconURL } from './art.js';
+import { partIconURL, uiIconURL } from './art.js';
+import { platform } from './platform.js';
 
 const $ = id => document.getElementById(id);
 
@@ -57,13 +58,12 @@ const ICONS = {
   bottle: svg('<path d="M10 2h4M11 2v3M13 2v3"/><rect x="8" y="5" width="8" height="17" rx="3"/><path d="M8 11h8M10 15l4 0"/>'),
   bolt: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
   battery: svg('<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M22 11v2M8 9l-2 3h4l-2 3"/>'),
+  play: svg('<rect x="2" y="5" width="20" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>'),
   settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
 };
 
 let game = null;
-let panel = 'upgrades'; // what the dock shows: the car's upgrades, or the race list
 let viewing = null;     // a car not owned yet, on show in the garage; null shows the one you drive
-let envTab = 'countryside';
 let hud = null;
 let taps = 0;
 
@@ -71,32 +71,26 @@ export function init(g) {
   game = g;
   $('car-prev').innerHTML = ICONS.prev;
   $('car-next').innerHTML = `${ICONS.next}<i class="badge"></i>`;
-  $('btn-race').innerHTML = `${ICONS.flag}<span>Race</span>`;
-  $('dock-back').innerHTML = `${ICONS.prev}<span>Upgrades</span>`;
   $('btn-pause').innerHTML = ICONS.pause;
+  $('btn-race-ad').innerHTML = `${ICONS.play}<span>Race now</span>`;
 
   $('car-prev').addEventListener('click', () => { sfx.click(); stepCar(-1); });
   $('car-next').addEventListener('click', () => { sfx.click(); stepCar(1); });
-  $('btn-race').addEventListener('click', () => { sfx.click(); openPanel(panel === 'races' ? 'upgrades' : 'races'); });
-  $('dock-back').addEventListener('click', () => { sfx.click(); openPanel('upgrades'); });
+  $('btn-race').addEventListener('click', onRace);
+  $('btn-race-ad').addEventListener('click', () => {
+    sfx.click();
+    watchAd('skip-cooldown', () => { skipCooldown(); onRace(); });
+  });
+  setInterval(renderRaceButton, 250);
   $('car-buy').addEventListener('click', onSheetClick);
   $('sheet-body').addEventListener('click', onSheetClick);
-  $('sheet-tabs').addEventListener('click', e => {
-    const b = e.target.closest('[data-tab]');
-    if (!b) return;
-    sfx.click();
-    envTab = b.dataset.tab;
-    renderPanel();
-  });
   $('goal-chip').addEventListener('click', () => {
     const g = goal();
     sfx.click();
-    if (g.envTab) envTab = g.envTab;
-    if (g.panel) openPanel(g.panel, true);
+    if (g.race) flash($('btn-race'));
     if (g.car) showCar(g.car);
     if (g.upgrade) {
       showCar(state.car);
-      openPanel('upgrades');
       const b = document.querySelector(`.upg-btn[data-id="${g.upgrade}"]`);
       b?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       flash(b);
@@ -111,11 +105,13 @@ export function init(g) {
   applyMotion();
   bus.on('achievement', list => {
     sfx.achieve();
-    list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy'));
+    // ones earned in a race are listed on the result card, where a toast would cover the title
+    if (!$('race-ui').hidden) raceAchievements.push(...list);
+    else list.forEach(a => toast(`🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`, 'trophy'));
   });
 
   // keyboard: Enter presses a dialog's main button, Escape closes it; in the garage the arrow
-  // keys flip through cars and R opens the race list (GDD §10.10)
+  // keys flip through cars and R starts the next race (GDD §10.10)
   window.addEventListener('keydown', e => {
     if (e.code === 'Enter' && !$('modal').hidden && !e.repeat) {
       $('modal-card').querySelector('.actions .btn.go')?.click();
@@ -126,7 +122,7 @@ export function init(g) {
     if (!$('modal').hidden) return;
     if (e.code === 'ArrowLeft') stepCar(-1);
     if (e.code === 'ArrowRight') stepCar(1);
-    if (e.code === 'KeyR') openPanel(panel === 'races' ? 'upgrades' : 'races');
+    if (e.code === 'KeyR') onRace();
   });
 
   bus.on('change', what => {
@@ -142,7 +138,7 @@ export function init(g) {
   bus.on('tap', () => { if (++taps === 8) $('tap-hint').classList.add('gone'); });
   window.addEventListener('resize', () => { bus.emit('focus'); coachUpdate(); });
   $('sheet-body').addEventListener('scroll', coachUpdate, { passive: true });
-  openPanel('upgrades');
+  renderPanel();
   renderCarBuy();
   renderWallet();
 }
@@ -192,7 +188,8 @@ function renderCarBuy() {
 function paintedIcons() {
   const img = name => `<img class="art-icon" src="${uiIconURL(name)}" alt="">`;
   if (!uiIconURL('race')) return;
-  $('btn-race').innerHTML = `${img('race')}<span>Race</span>`;
+  raceKey = '';
+  renderRaceButton();
   $('btn-trophies').querySelector('svg, .art-icon')?.remove();
   $('btn-trophies').insertAdjacentHTML('afterbegin', img('trophy'));
   document.querySelector('.cash-icon').innerHTML = img('cash');
@@ -225,7 +222,7 @@ function renderWallet() {
   $('money').textContent = fmt(state.cash);
   $('rate-click').textContent = `+${fmt(clickValue())} / tap`;
   const auto = autoRate();
-  $('rate-auto').textContent = auto ? `+${fmt(auto)} / sec` : '';
+  $('rate-auto').textContent = auto ? `+${auto < 10 ? `$${+auto.toFixed(1)}` : fmt(auto)} / sec` : '';
   const car = carDef(state.car), title = MILESTONES.find(m => m.title && totalStars() >= m.stars)?.title;
   const chip = `<span class="chip-name">${car.name}</span><span class="chip-tier">${title ? `<span class="chip-title">${title}</span><span class="sep"> · </span>` : ''}PR ${carPR(state.car)} · <b class="stars-inline">★ ${totalStars()}</b></span>`;
   if ($('car-chip').innerHTML !== chip) $('car-chip').innerHTML = chip;
@@ -239,19 +236,65 @@ function renderWallet() {
 // The single "Next goal" chip (GDD §2.3). `upgrade` points at a part button beside the car.
 function goal() {
   if (!state.tutorial.upgraded && state.cash >= upgradeCost('engine', 'kaze')) return { text: 'Buy your first upgrade', upgrade: 'engine' };
-  const fresh = EVENTS.find(e => eventUnlocked(e) && !state.events[e.id]?.won);
+  const e = nextRace();
   const car = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id) && c.price <= state.cash);
   if (car) return { text: `Buy the ${car.name}`, car: car.id };
   // an affordable part when the car is short of the next race, or when it's small change
-  const def = carDef(state.car), underpowered = fresh && carPR(state.car) < fresh.rec;
+  const def = carDef(state.car), underpowered = carPR(state.car) < e.rec;
   const part = def.parts.find(k => !upgradeLock(k) && upgradeCost(k) != null && upgradeCost(k) <= state.cash * (underpowered ? 1 : 0.25));
   if (part) return { text: `Upgrade: ${partName(def, part)}`, upgrade: part };
-  if (fresh) return { text: `Race: ${fresh.name}`, panel: 'races', envTab: fresh.env };
+  if (!underpowered || carPR(state.car) >= e.rec * 0.9) return { text: `${e.name}: beat ${OPPONENTS[e.opp].name}`, race: true };
   const next = CARS.find(c => !state.owned.includes(c.id) && !carLock(c.id));
   if (next) return { text: `Save for the ${next.name} (${fmt(next.price)})`, car: next.id };
-  if (legendUnlocked()) return { text: `Legend Series: Round ${state.legend.round}`, panel: 'races', envTab: 'legend' };
-  const m = MILESTONES.find(x => x.stars > totalStars());
-  return m ? { text: `Earn ${m.stars}★ for ${fmt(m.cash)}`, panel: 'races' } : { text: 'You are a Garage Legend!' };
+  return { text: `${e.name}: beat ${OPPONENTS[e.opp].name}`, race: true };
+}
+
+// ---------------------------------------------------------------- the RACE button
+
+// RACE shows the next race and how the car measures up; after a race it counts down the
+// cooldown, with a rewarded ad beside it to skip the wait.
+let raceKey = '';
+function renderRaceButton() {
+  if ($('garage-ui').hidden) return;
+  const e = nextRace(), left = Math.ceil(raceCooldown()), mine = carPR(state.car);
+  const icon = uiIconURL('race') ? `<img class="art-icon" src="${uiIconURL('race')}" alt="">` : ICONS.flag;
+  const fit = mine >= e.rec ? '' : mine >= e.rec * 0.9 ? 'close' : 'short';
+  const key = `${e.n}|${left}|${fit}|${icon.length}`;
+  if (key === raceKey) return;
+  raceKey = key;
+  const b = $('btn-race');
+  b.classList.toggle('cooling', left > 0);
+  b.innerHTML = left > 0
+    ? `${icon}<span class="rb-text"><b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</b><small>${e.name} next</small></span>`
+    : `${icon}<span class="rb-text"><b>Race</b><small class="${fit === 'short' ? 'short' : ''}">${e.name} · PR ${e.rec}${fit === 'short' ? ' ⚠' : ''}</small></span>`;
+  $('btn-race-ad').hidden = !(left > 0);
+  $('tap-hint').classList.toggle('beside-ad', left > 0);
+}
+
+function onRace() {
+  if ($('garage-ui').hidden || !$('modal').hidden) return;
+  const left = Math.ceil(raceCooldown());
+  if (left > 0) {
+    sfx.deny();
+    toast(`Next race in ${left} s · or watch an ad to race now`);
+    flash($('btn-race-ad'));
+    return;
+  }
+  sfx.click();
+  startRace(nextRace().id);
+}
+
+// Plays a rewarded ad (a 3-second test ad until a portal SDK is in) with the music down, and
+// gives the reward if it finished.
+let adPlaying = false;
+export async function watchAd(placement, reward) {
+  if (adPlaying) return;
+  adPlaying = true;
+  setMusic(false);
+  const ok = await platform.rewardedAd(placement).catch(() => false);
+  setMusic(!state.musicOff);
+  adPlaying = false;
+  if (ok) reward(); else toast('No ad available right now');
 }
 
 // The garage view (CSS px): the screen beside the dock, or above it on phones held upright
@@ -267,23 +310,9 @@ export function garageFocus() {
   return { x: 0, y: top, w: Math.max(80, a.w), h: Math.max(80, a.h - top - 8) };
 }
 
-function openPanel(name, keepTab = false) {
-  if (!keepTab && name === 'races' && panel !== 'races') envTab = EVENTS.every(e => state.events[e.id]?.won) && legendUnlocked() ? 'legend' : latestEvent().env;
-  const changedTab = panel !== name;
-  panel = name;
-  renderPanel();
-  if (changedTab) $('sheet-body').scrollTop = 0;
-  $('btn-race').classList.toggle('active', name === 'races');
-}
-
-const tabsHtml = (list, on) => list.map(([id, label, locked]) => `<button class="tab ${id === on ? 'on' : ''} ${locked ? 'locked' : ''}" data-tab="${id}">${locked ? ICONS.lock : ''}${label}</button>`).join('');
-
 function renderPanel() {
-  $('dock-title').textContent = panel === 'races' ? 'Race' : 'Upgrades';
-  $('dock-back').hidden = panel !== 'races';
-  $('sheet-tabs').innerHTML = panel === 'races' ? tabsHtml([...ENVS.map(v => [v.id, v.short, !envUnlocked(v)]), ['legend', 'Legend', !legendUnlocked()]], envTab) : '';
   const scroll = $('sheet-body').scrollTop;
-  $('sheet-body').innerHTML = panel === 'races' ? renderRaces() : renderUpgrades();
+  $('sheet-body').innerHTML = renderUpgrades();
   $('sheet-body').scrollTop = scroll;
   refreshAfford();
   coachUpdate();
@@ -347,11 +376,11 @@ function renderUpgrades() {
   }) + upgButton({
     action: 'garage', id: 'auto', icon: 'crew', img: uiIconURL('crew'), name: 'Pit Crew', lvl: autoUnlocked() ? au : null, cost: garageCost('auto'),
     desc: autoUnlocked() ? "Taps your car for you, even while you're away (half rate, up to 2 h). Each level makes them tap faster."
-      : `Win ${eventDef(AUTO_UNLOCK).name} and your crew starts tapping your car at ${crewRate(0)} taps/s. Upgrades make them faster.`,
-    lock: autoUnlocked() ? null : `Win ${eventDef(AUTO_UNLOCK).name}`,
+      : `Win race ${AUTO_UNLOCK} and your crew starts tapping your car at ${crewRate(0)} taps/s. Upgrades make them faster.`,
+    lock: autoUnlocked() ? null : `Win race ${AUTO_UNLOCK}`,
     gain: `${crewRate(au)} → ${crewRate(au + 1)} taps / s`,
   }) + upgButton({
-    action: 'rep', id: 'rep', icon: 'star', img: uiIconURL('rep'), name: 'Reputation', desc: 'Every race star adds 5% to tap income, and star milestones pay out cash.',
+    action: 'rep', id: 'rep', icon: 'star', img: uiIconURL('rep'), name: 'Reputation', desc: 'Every race you win is a star: each adds 5% to tap income, and star milestones pay out cash.',
     gain: `×${mult.toFixed(2)} tap income`, tag: `★ ${stars}`,
   });
   return `<div class="dock-head">${car.name} · PR <b>${carPR(state.car)}</b></div><div class="upg-grid">${parts}</div>
@@ -365,68 +394,12 @@ function showReputation() {
     return `<div class="ms ${on ? 'on' : ''}">${on ? ICONS.check : ICONS.lock}<span>${fmt(x.cash)}${x.title ? ` · "${x.title}"` : ''}</span><b>${x.stars}★</b></div>`;
   }).join('');
   modal(`<div class="result-title">Reputation</div>
-    <div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Tap income ×${mult.toFixed(2)}</b><div class="desc">Every star from a race adds 5%. ${m ? `Next: ${m.stars}★ for ${fmt(m.cash)}` : 'Every star earned!'}</div></div></div>
+    <div class="rep"><span class="rep-stars">${ICONS.star}${stars}</span><div><b>Tap income ×${mult.toFixed(2)}</b><div class="desc">Every race win is a star and adds 5%. ${m ? `Next: ${m.stars}★ for ${fmt(m.cash)}` : 'Every milestone reached!'}</div></div></div>
     <div class="hint">Star milestones</div><div class="ms-list">${list}</div>
     <div class="actions"><button class="btn go" data-m="close">Close</button></div>`, { close: coachUpdate });
 }
 
 const windowLabel = w => (w >= 0.8 ? 'Wide' : w >= 0.7 ? 'Normal' : 'Narrow');
-
-function prCheck(rec) {
-  const mine = carPR(state.car);
-  if (mine >= rec) return `<span class="prc ok">${ICONS.check}PR ${rec}</span>`;
-  if (mine >= rec * 0.9) return `<span class="prc warn">${ICONS.warn}PR ${rec}</span>`;
-  return `<span class="prc bad">${ICONS.cross}PR ${rec}</span>`;
-}
-
-const starRow = (n, cls = '') => `<span class="star-row ${cls}">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}">${ICONS.star}</i>`).join('')}</span>`;
-
-function renderLegend() {
-  const head = `<div class="loc"><div><div class="loc-name">Legend Series</div><div class="desc">Your car: <b>${carDef(state.car).name}</b> · PR <b>${carPR(state.car)}</b></div></div><span class="tag">Endless</span></div>`;
-  if (!legendUnlocked()) {
-    return head + `<div class="card locked-env">${ICONS.lock}<div><b>Locked</b><div class="desc">Win ${eventDef(LEGEND.unlock).name} to enter the Legend Series.</div></div></div>`;
-  }
-  const L = state.legend;
-  const intro = `<p class="hint">Endless rounds against the fastest drivers around. Every win moves you up a round and the rivals get quicker each time. Best: <b>${L.best ? `Round ${L.best}` : 'none yet'}</b></p>`;
-  return head + intro + [0, 1, 2].map(k => {
-    const e = legendEvent(L.round + k), env = ENVS.find(v => v.id === e.env), open = k === 0;
-    return `<div class="card race ${open ? '' : 'locked'}">
-      <div class="info">
-        <div class="name">Round ${e.legend} ${open ? '<span class="new-tag">NEXT</span>' : ''}</div>
-        <div class="desc">${env.short} · ${DIST[e.dist].label} · vs <b>${OPPONENTS[e.opp].name}</b></div>
-        <div class="effect">${prCheck(e.rec)} <span class="reward">${fmt(e.win)}</span></div>
-      </div>
-      ${open ? `<button class="btn go" data-action="race" data-id="${e.id}">Race</button>` : `<div class="locked-note">${ICONS.lock}<span>Win round ${e.legend - 1}</span></div>`}
-    </div>`;
-  }).join('');
-}
-
-function renderRaces() {
-  if (envTab === 'legend') return renderLegend();
-  const env = ENVS.find(v => v.id === envTab);
-  const head = `<div class="loc"><div><div class="loc-name">${env.name}</div><div class="desc">Your car: <b>${carDef(state.car).name}</b> · PR <b>${carPR(state.car)}</b></div></div><span class="tag">${env.tag}</span></div>`
-    + `<button class="card practice" data-action="practice"><div class="icon">${ICONS.flag}</div><div class="info"><div class="name">Driving lesson</div><div class="desc">Practice the launch, shifting and nitro step by step. No rewards, no pressure.</div></div><span class="btn">Practice</span></button>`;
-  if (!envUnlocked(env)) {
-    return head + `<div class="card locked-env">${ICONS.lock}<div><b>Locked</b><div class="desc">Win ${eventDef(env.requires).name} to unlock this venue.</div></div></div>`;
-  }
-  const list = EVENTS.filter(e => e.env === env.id);
-  return head + list.map((e, i) => {
-    const rec = state.events[e.id], open = eventUnlocked(e), o = OPPONENTS[e.opp];
-    const reward = rec?.won ? fmt(e.win) : `${fmt(e.win + e.first + (e.champion || 0))}`;
-    const right = open
-      ? `<button class="btn go" data-action="race" data-id="${e.id}">Race</button>`
-      : `<div class="locked-note">${ICONS.lock}<span>Win ${list[i - 1].name}</span></div>`;
-    return `<div class="card race ${open ? '' : 'locked'}">
-      <div class="info">
-        <div class="name">${e.name} ${open && !rec?.won ? '<span class="new-tag">NEW</span>' : ''}</div>
-        <div class="desc">${env.short} ${i + 1}/${list.length} · ${DIST[e.dist].label} · vs <b>${o.name}</b></div>
-        <div class="effect">${prCheck(e.rec)} ${starRow(rec?.stars || 0)} <span class="reward">${reward}</span></div>
-        ${rec?.best ? `<div class="desc">Best ${rec.best.toFixed(2)}s · ★★ ${MEDALS[e.id][0]}s · ★★★ ${MEDALS[e.id][1]}s</div>` : ''}
-      </div>
-      ${right}
-    </div>`;
-  }).join('');
-}
 
 function refreshAfford() {
   document.querySelectorAll('#sheet-body [data-cost], #car-buy [data-cost]').forEach(b => b.classList.toggle('poor', state.cash < +b.dataset.cost));
@@ -453,9 +426,6 @@ function onSheetClick(e) {
       flash(document.querySelector(`.upg-btn[data-id="${id}"]`));
       bus.emit('upgraded', { name: id === 'click' ? 'Tap Power' : 'Pit Crew', lvl: id === 'click' ? state.clickPower : state.automation });
     } else { sfx.deny(); need(); }
-  } else if (action === 'practice') {
-    sfx.click();
-    startRace('country_1', true);
   } else if (action === 'rep') {
     sfx.click();
     showReputation();
@@ -464,9 +434,6 @@ function onSheetClick(e) {
   } else if (action === 'select') {
     sfx.click();
     selectCar(id);
-  } else if (action === 'race') {
-    sfx.click();
-    showMatchup(id);
   }
 }
 
@@ -481,6 +448,8 @@ export function showGarage() {
   setTimeout(() => { $('loading').hidden = true; }, 450); // fades can stall in background tabs
   showScreen('garage');
   renderWallet();
+  raceKey = '';
+  renderRaceButton();
   bus.emit('focus');
 }
 
@@ -490,58 +459,6 @@ function startRace(id, practice = false) {
   showScreen('race');
   game.scene.stop('garage');
   game.scene.start('race', { eventId: id, practice });
-}
-
-function toGarage() {
-  game.scene.stop('race');
-  game.scene.start('garage');
-}
-
-// ---------------------------------------------------------------- pre-race matchup (GDD §7.3)
-
-// The opponent's raw PR isn't shown: rookies drive worse than their PR suggests, so the
-// recommended PR is the honest comparison.
-function verdict(mine, rec) {
-  if (mine >= rec) return ['ok', "You're the favorite"];
-  if (mine >= rec * 0.9) return ['warn', 'Close match: drive clean'];
-  return ['bad', 'Underpowered: upgrade first'];
-}
-
-export function showMatchup(id) {
-  const e = eventDef(id), o = OPPONENTS[e.opp], env = ENVS.find(v => v.id === e.env), car = carDef(state.car);
-  const mine = carPR(state.car), rec = state.events[e.id], [cls, text] = verdict(mine, e.rec);
-  const reward = e.win + (rec?.won ? 0 : e.first + (e.champion || 0));
-  const chips = state.owned.length < 2 ? '' : `<div class="mu-cars"><div class="label">Change car</div><div class="mu-chips">${
-    state.owned.map(c => `<button class="mu-chip ${c === state.car ? 'on' : ''}" data-car="${c}">${carDef(c).name}<b>PR ${carPR(c)}</b></button>`).join('')}</div></div>`;
-  modal(`
-    <div class="mu-title">${e.name}</div>
-    <div class="result-sub">${env.name} · ${DIST[e.dist].label}${e.legend ? '' : ` · ${env.short} ${EVENTS.filter(x => x.env === e.env).indexOf(e) + 1}/5`}</div>
-    <div class="mu-vs">
-      <div class="mu-side"><img src="${carPreview(`car-${state.car}`)}" alt=""><div class="mu-name">${car.name}</div><div class="mu-pr">PR ${mine}</div><div class="mu-who">You</div></div>
-      <div class="mu-mid">VS</div>
-      <div class="mu-side opp"><img src="${carPreview(`opp-${e.opp}`)}" alt="">${portraitURL(o.portrait) ? `<img class="mu-face" src="${portraitURL(o.portrait)}" alt="">` : ""}<div class="mu-name">${o.name}</div><div class="mu-pr">${o.ai.name}</div><div class="mu-who">Rival</div></div>
-    </div>
-    <div class="mu-verdict ${cls}">${prCheck(e.rec)}<span>${text}</span></div>
-    <div class="rows">
-      <div class="row"><span>${rec?.won || e.legend ? 'Win' : 'First win'}</span><span class="plus">${fmt(reward)}</span></div>
-      ${rec?.best ? `<div class="row"><span>Your best</span><span>${rec.best.toFixed(2)}s</span></div>` : ''}
-      ${e.legend ? '' : `<div class="row"><span>Stars ${starRow(rec?.stars || 0)}</span><span>★★ ${MEDALS[e.id][0]}s · ★★★ ${MEDALS[e.id][1]}s</span></div>`}
-    </div>
-    ${chips}
-    <div class="actions"><button class="btn" data-m="back">Back</button><button class="btn go" data-m="race" id="mu-race">RACE!</button></div>`, {
-    back: () => { if ($('garage-ui').hidden) toGarage(); else coachUpdate(); },
-    race: () => startRace(id),
-  });
-  const base = $('modal-card').onclick;
-  $('modal-card').onclick = ev => {
-    const c = ev.target.closest('[data-car]');
-    if (!c) return base(ev);
-    sfx.click();
-    selectCar(c.dataset.car);
-    showMatchup(id);
-  };
-  $('modal-card').classList.add('matchup');
-  coachUpdate();
 }
 
 // ---------------------------------------------------------------- achievements
@@ -584,8 +501,9 @@ export function showSettings() {
       <div class="row"><span>Earned from taps</span><span>${fmt(s.fromClicks)}</span></div>
       <div class="row"><span>Earned from races</span><span>${fmt(s.fromRaces)}</span></div>
       <div class="row"><span>Earned by your crew</span><span>${fmt(s.fromAuto)}</span></div>
-      ${state.legend.best ? `<div class="row"><span>Best Legend round</span><span>${state.legend.best}</span></div>` : ''}
+      <div class="row"><span>Best race won</span><span>${state.race.best ? `Race ${state.race.best}` : '—'}</span></div>
     </div>
+    <button class="btn wide" data-set="practice">${ICONS.flag} Driving lesson (practice, no rewards)</button>
     <div class="credits"><b>Credits</b>Crowd cheering: Gregor Quendel (CC BY 4.0) · Tyre squeal: audible-edge / Tom Haigh (CC BY 3.0) · Engine loop: domasx2 (CC0) · Effects: Kenney.nl (CC0) · Music: "Awake! (Megawall-10)" by cynicmusic, "Countryside" and "Oceanside" by TAD (CC0)</div>
     <button class="btn danger wide" data-set="reset">Reset progress</button>
     <div class="actions"><button class="btn go" data-m="close">Done</button></div>`, { close: coachUpdate });
@@ -603,6 +521,7 @@ export function showSettings() {
       b.querySelector('.switch').classList.toggle('on', !state.musicOff);
       return;
     }
+    if (k === 'practice') { hideModal(); startRace('race_1', true); return; }
     if (k === 'motion') state.reducedMotion = !state.reducedMotion;
     if (k === 'mph' || k === 'kmh') { state.units = k; state.unitsChosen = true; }
     if (k === 'reset') {
@@ -635,6 +554,8 @@ export function coach(el, text) {
   coachEl = el;
   box.classList.remove('center');
   el.classList.add('coach-target');
+  // no text: just the pulsing ring, where a bubble would cover something
+  if (!text) { box.hidden = true; return; }
   if ($('coach-text').textContent !== text) $('coach-text').textContent = text;
   box.hidden = false;
   const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight;
@@ -666,10 +587,14 @@ export function lesson(el, { title = '', text = '', button = null, onButton = nu
     $('coach-text').innerHTML = `${title ? `<b class="lesson-title">${title}</b>` : ''}<span>${text}</span>${button ? `<button class="btn go lesson-btn">${button}</button>` : ''}`;
     $('coach-text').querySelector('.lesson-btn')?.addEventListener('click', e => { e.stopPropagation(); sfx.click(); onButton?.(); });
   }
-  if (el) return coach(el, $('coach-text').textContent);
+  // on a phone held upright a card pointing at the HUD would cover the rev meter and speedo:
+  // there the target just pulses and the card sits up over the sky
+  const portrait = innerHeight > innerWidth;
+  if (el && !portrait) return coach(el, $('coach-text').textContent);
   // no target: a centred card under the race header
-  if (coachEl) coachEl.classList.remove('coach-target');
-  coachEl = null;
+  if (coachEl && coachEl !== el) coachEl.classList.remove('coach-target');
+  coachEl = el;
+  el?.classList.add('coach-target');
   box.hidden = false;
   box.classList.remove('below');
   box.classList.add('center');
@@ -686,15 +611,12 @@ function guideStep() {
     changed('settings');
     return null;
   }
-  if (!$('modal').hidden) return !t.raced && $('mu-race') ? [$('mu-race'), "Let's race!"] : null;
+  if (!$('modal').hidden) return null;
   if (!t.upgraded) {
     if (state.cash < upgradeCost('engine', 'kaze')) return null; // the tap hint covers this part
-    if (panel !== 'upgrades') return [$('dock-back'), 'You can afford an upgrade!'];
     return [document.querySelector('.upg-btn[data-id="engine"]'), 'Tap Engine to upgrade your car'];
   }
-  if (panel !== 'races') return [$('btn-race'), 'Time for your first race!'];
-  if (envTab !== 'countryside') return null;
-  return [$('sheet-body').querySelector('[data-id="country_1"]'), 'Race The Rusty'];
+  return [$('btn-race'), 'Time for your first race!'];
 }
 
 function coachUpdate() {
@@ -738,14 +660,15 @@ function buildTach(spec, redline) {
   return s;
 }
 
+const raceAchievements = [];
 export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   showScreen('race');
+  raceAchievements.length = 0;
   const env = ENVS.find(v => v.id === event.env), car = carDef(state.car);
-  $('race-name').textContent = event.name;
+  $('race-name').textContent = practice ? 'Driving lesson' : event.name;
   $('race-sub').textContent = `${env.short} · ${DIST[event.dist].label} · ${car.name} PR ${pr(pSpec)} vs ${oSpec.name}`;
   $('speed-unit').textContent = state.units === 'kmh' ? 'KM/H' : 'MPH';
-  const rec = state.events[event.id];
-  $('race-reward').innerHTML = practice ? '<small>Lesson</small>Practice' : `<small>Win</small>${fmt(event.win + (rec?.won ? 0 : event.first + (event.champion || 0)))}`;
+  $('race-reward').innerHTML = practice ? '<small>Lesson</small>Practice' : `<small>Win</small>${fmt(event.win)}`;
   $('callout').className = 'callout';
   $('tach').innerHTML = buildTach(pSpec, car.redlineRpm);
   hud = { needle: $('tach').querySelector('.needle'), hub: $('tach').querySelector('.t-hub'), last: {} };
@@ -866,36 +789,50 @@ export function showResult(d, actions) {
       : d.nitros && !d.nitros.length ? 'Tap NITRO in top gear, and chain it when the button flashes.'
       : d.launch === 'slow' || d.launch === 'late' ? 'Let go the instant the light turns green: every tenth of a second counts.'
         : d.shifts.filter(s => s === 'perfect' || s === 'good').length < d.shifts.length / 2 ? 'Shift while the needle is in the green zone.'
-          : carPR(state.car) < d.event.rec ? `Recommended PR is ${d.event.rec}. Upgrade or pick a faster car.` : 'So close. Try again!';
+          : carPR(state.car) < d.event.rec ? `This race wants PR ${d.event.rec}: upgrade your car or buy a faster one.` : 'So close. Try again!';
   }
   const unlocks = [];
-  if (d.env) unlocks.push(`${d.env.name} unlocked!`);
-  else if (d.next) unlocks.push(`${d.next.name} unlocked!`);
+  const next = nextRace();
+  if (d.won && d.event.n === AUTO_UNLOCK) unlocks.push('Your Pit Crew is ready: they tap your car for you!');
+  for (const c of CARS) if (d.won && c.requires === d.event.n) unlocks.push(`The ${c.name} can now be bought!`);
   for (const m of d.milestones) if (m.title) unlocks.push(`${m.stars}★: you are now a "${m.title}"!`);
-  if (d.event.id === LEGEND.unlock && d.firstWin) unlocks.push('The Apex Zero can now be bought!', 'The Legend Series is open!');
-  const legend = d.event.legend;
+  const trophies = raceAchievements.splice(0).map(a => `🏆 ${a.name}${a.reward ? ` · +${fmt(a.reward)}` : ''}`);
+  const prize = d.lines[0][1];
   modal(`
     <div class="result-title ${d.won ? 'win' : 'lose'}">${d.won ? 'VICTORY' : 'DEFEAT'}</div>
     <div class="result-sub">${d.won ? `You beat ${d.opp}` : `${d.opp} got you this time`} · ${d.won ? '+' : '−'}${Math.abs(gap).toFixed(2)}s</div>
-    ${legend ? `<div class="new-stars">${d.won ? `Round ${legend} cleared` : `Round ${legend}`} · best ${state.legend.best || '—'}</div>` : starRow(d.stars, 'big')}
-    ${d.newStars ? `<div class="new-stars">+${d.newStars}★ new</div>` : ''}
-    <div class="result-money">+${fmt(d.total)}</div>
+    <div class="new-stars">${d.won ? `${d.event.name} cleared · +1★` : `${d.event.name} again next time`}</div>
+    <div class="result-money" id="result-money">+${fmt(d.total)}</div>
     <div class="rows">${d.lines.map(([k, v]) => `<div class="row"><span>${k}</span><span class="plus">+${fmt(v)}</span></div>`).join('')}</div>
+    <button class="btn ad result-ad" id="result-ad">${ICONS.play}Watch an ad: 2× prize (+${fmt(prize)})</button>
+    ${unlocks.map(u => `<div class="unlock">${u}</div>`).join('')}
+    ${trophies.map(u => `<div class="unlock trophy">${u}</div>`).join('')}
     <div class="rows">
       <div class="row"><span>Your time</span><span>${t(d.you)}</span></div>
       <div class="row"><span>${d.opp}</span><span>${t(d.them)}</span></div>
       <div class="row"><span>${LAUNCH_NAME[d.launch] || 'Launch'}</span><span>${d.reaction == null ? '—' : d.reaction.toFixed(3) + 's'}</span></div>
       <div class="row"><span>Shifts</span><span>${shiftText}</span></div>
       ${d.nitros?.length ? `<div class="row"><span>Nitro</span><span>${nitroText(d.nitros)}</span></div>` : ''}
-      ${legend ? '' : `<div class="row"><span>Stars</span><span>★★ ${MEDALS[d.event.id][0]}s · ★★★ ${MEDALS[d.event.id][1]}s</span></div>`}
+      <div class="row"><span>Next</span><span>${next.name} · vs ${OPPONENTS[next.opp].name} · PR ${next.rec}</span></div>
     </div>
-    ${unlocks.map(u => `<div class="unlock">${u}</div>`).join('')}
     ${tip ? `<div class="tip">Tip: ${tip}</div>` : ''}
     <div class="actions">
-      <button class="btn" data-m="garage">Garage</button>
-      <button class="btn ${actions.next ? '' : 'go'}" data-m="again">Retry</button>
-      ${actions.next ? `<button class="btn go" data-m="next">${legend ? 'Next round' : 'Next event'}</button>` : ''}
+      <button class="btn go" data-m="garage">Back to the garage</button>
     </div>`, actions);
+  // the ad doubles the race prize once (milestone cash isn't doubled)
+  const ad = $('result-ad');
+  ad.onclick = e => {
+    e.stopPropagation();
+    if (ad.disabled) return;
+    sfx.click();
+    watchAd('double-prize', () => {
+      bonusPayout(prize);
+      sfx.buy();
+      ad.disabled = true;
+      ad.textContent = `Prize doubled: +${fmt(prize)}`;
+      $('result-money').textContent = `+${fmt(d.total + prize)}`;
+    });
+  };
 }
 
 // End of a Practice lesson: how each of the three skills went, with the rule to remember.

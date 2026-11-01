@@ -1,6 +1,6 @@
 // Car parts (GDD §8): what a car's parts do to its stats and what the next level costs.
 // Pure functions of a car definition and its part levels, shared by the game and tools/balance.js.
-import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP, TAP, CREW } from './data.js';
+import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP, TAP, CREW, LADDER, OPPONENTS } from './data.js';
 
 export const partName = (car, id) => car.partNames?.[id] || PARTS[id].name;
 export const blankTune = car => Object.fromEntries(car.parts.map(id => [id, 0]));
@@ -39,4 +39,25 @@ export function partLock(car, tune, id) {
   const needs = PARTS[id].needs;
   if (!needs || !car.parts.includes(needs[0])) return null;
   return (tune[needs[0]] || 0) >= needs[1] ? null : `Needs ${partName(car, needs[0])} Lv ${needs[1]}`;
+}
+
+// ---------------------------------------------------------------- the race ladder
+
+// Race n of the ladder (1 is the first), shaped like an event: id, venue, distance, rival,
+// recommended PR, the rival's PR and the prize for a win.
+export function ladderEvent(n) {
+  const L = LADDER, i = n - 1;
+  const fast = Math.log(L.softCap / L.rec) / Math.log(1 + L.growth); // races until the soft cap
+  const top = i > fast;
+  const rec = Math.round(top ? L.softCap * Math.pow(1 + L.lateGrowth, i - fast) : L.rec * Math.pow(1 + L.growth, i));
+  const last = OPPONENTS[L.roster.at(-1)];
+  const opp = rec > last.pr * L.pick
+    ? L.endRivals[i % L.endRivals.length]
+    : [...L.roster].reverse().find(id => OPPONENTS[id].pr <= rec * L.pick) || L.roster[0];
+  const dist = n <= 4 ? 'quarter' : rec < 300 ? ['quarter', 'half'][n % 2] : ['quarter', 'half', 'mile'][n % 3];
+  const env = top ? L.envs[i % L.envs.length].id : L.envs.find(v => rec <= v.upTo).id;
+  return {
+    id: `race_${n}`, n, name: `Race ${n}`, env, dist, opp, rec,
+    oppPR: Math.round(rec * L.ratio[opp][dist]), win: roundNice(L.reward * Math.pow(rec / L.rec, L.rewardPow)),
+  };
 }

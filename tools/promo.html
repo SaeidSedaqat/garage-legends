@@ -40,7 +40,7 @@
 
     const load = src => new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = `../${src}`; });
     const $ = id => document.getElementById(id);
-    const [pose, logo] = await Promise.all([load('assets/cars-pose.webp'), load('assets/logo.png')]);
+    const [pose, logo] = await Promise.all([load('assets/cars-pose.webp'), load('assets/logo.webp')]);
     const scenes = {}, cars = {};
     const sceneImg = async id => (scenes[id] ??= await load(SCENES[id].file));
     const carImg = id => (cars[id] ??= cutout(pose, ART[CARS.find(c => c.id === id).art].pose.crop));

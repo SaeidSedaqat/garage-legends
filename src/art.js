@@ -1,15 +1,16 @@
 // Art helpers: cutting car sprites out of their magenta backgrounds, mockup crops,
 // and the remaining placeholder scenery drawn with Canvas 2D.
 
-// Regions cut from the environment mockup sheet (assets/mockups/3.webp), in source pixels.
+// The three venue skies, cut from the environment mockup (assets/mockups/3.webp) and packed
+// into one small sheet, in source pixels.
 // The crops skip the sheet's labels and anything that would clash with in-game objects.
 export const MOCKUP = {
   key: 'mock-env',
-  file: 'assets/mockups/3.webp',
+  file: 'assets/skies.webp',
   frames: {
-    countrySky: { x: 978, y: 60, w: 400, h: 232 },
-    coastSky: { x: 192, y: 575, w: 398, h: 215 },
-    citySky: { x: 985, y: 560, w: 430, h: 205 },
+    countrySky: { x: 0, y: 0, w: 400, h: 232 },
+    coastSky: { x: 0, y: 232, w: 398, h: 215 },
+    citySky: { x: 0, y: 447, w: 430, h: 205 },
   },
 };
 
@@ -338,8 +339,8 @@ export class CarView {
 
 // ---------------------------------------------------------------- rival portraits
 
-// Rival portraits, painted on assets/portraits.jpg; each rival's crop is `portrait` in data.js.
-export const PORTRAITS = { key: 'portraits', file: 'assets/portraits.jpg' };
+// Rival portraits, painted on assets/portraits.webp; each rival's crop is `portrait` in data.js.
+export const PORTRAITS = { key: 'portraits', file: 'assets/portraits.webp' };
 let portraitSheet = null;
 const portraitCache = new Map();
 export const registerPortraits = img => { portraitSheet = img; };
@@ -352,10 +353,10 @@ export function portraitURL(crop) {
 
 // ---------------------------------------------------------------- upgrade icons and wrench
 
-// Painted upgrade part icons on assets/parts.jpg ([x, y, w, h] there). Tires and Drag Slicks
+// Painted upgrade part icons on assets/parts.webp ([x, y, w, h] there). Tires and Drag Slicks
 // use the tyre stack on the portrait sheet, and the Golden Wrench is that sheet's wrench in gold.
 export const PART_ICONS = {
-  key: 'part-icons', file: 'assets/parts.jpg',
+  key: 'part-icons', file: 'assets/parts.webp',
   crops: {
     engine: [56, 80, 195, 183], bigblock: [287, 77, 193, 187], turbo: [514, 97, 186, 155], supercharger: [733, 88, 197, 173],
     awd: [949, 84, 245, 183], gearbox: [95, 326, 106, 167], seqbox: [300, 326, 148, 172], exhaust: [500, 337, 213, 159],
@@ -376,10 +377,10 @@ export function partIconURL(id) {
   return iconCache.get(id);
 }
 
-// Painted interface icons on assets/ui-icons.jpg: the garage upgrades, the Race and
+// Painted interface icons on assets/ui-icons.webp: the garage upgrades, the Race and
 // achievements buttons, and the cash badge.
 export const UI_ICONS = {
-  key: 'ui-icons', file: 'assets/ui-icons.jpg',
+  key: 'ui-icons', file: 'assets/ui-icons.webp',
   crops: {
     tap: [104, 54, 213, 319], crew: [472, 87, 285, 272], rep: [908, 73, 241, 298],
     race: [80, 471, 281, 258], trophy: [489, 472, 255, 259], cash: [883, 500, 281, 225],

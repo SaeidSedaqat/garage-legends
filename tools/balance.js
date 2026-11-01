@@ -1,14 +1,14 @@
 // Balance check (GDD §17.2). Open tools/balance.html through the local server to run it.
-// For every event it finds the opponent PR at which a player at the recommended PR with
-// Good launches and Good shifts wins ~70%, and generates the Silver/Gold medal times.
-import { CARS, EVENTS, OPPONENTS, DIST, PART_LEVELS, STAR_BONUS, LEGEND } from '../src/data.js';
+// The race ladder: for every rival and distance it finds the rival PR at which a player at the
+// recommended PR with Good launches, shifts and nitro wins ~70% (LADDER.ratio), checks the win
+// rate up the ladder, and runs a pacing bot through it.
+import { CARS, OPPONENTS, DIST, LADDER, PART_LEVELS, STAR_BONUS, MILESTONES, LOSS_PCT } from '../src/data.js';
 import { pr, rng, hash, runSolo, aiInputs } from '../src/physics.js';
-import { blankTune, crewCost, crewRate, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
+import { blankTune, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
 
 const SAMPLES = 400;
 const TARGET_WIN = 0.7;
 const GOOD = { reaction: 0.35, launchQ: 'good', shiftQ: () => 'good', nitroQ: 'boost' };
-const PERFECT = { reaction: 0.2, launchQ: 'perfect', shiftQ: () => 'perfect', nitroQ: 'chain' };
 
 const car = id => CARS.find(c => c.id === id);
 
@@ -18,11 +18,41 @@ export function scaled(c, target) {
   return { ...c.stats, launch: c.stats.launch * k, accel: c.stats.accel * k, topSpeed: c.stats.topSpeed * k, quirk: c.launchQuirk };
 }
 
-export function winRate(event, playerTime, oppPR) {
-  const o = OPPONENTS[event.opp], s = scaled(car(o.carId), oppPR), rand = rng(hash(event.id));
+function winRate(oppId, dist, playerTime, oppPR) {
+  const o = OPPONENTS[oppId], s = scaled(car(o.carId), oppPR), rand = rng(hash(`${oppId}:${dist}`));
   let wins = 0;
-  for (let i = 0; i < SAMPLES; i++) if (playerTime <= runSolo(s, DIST[event.dist].m, aiInputs(o.ai, rand))) wins++;
+  for (let i = 0; i < SAMPLES; i++) if (playerTime <= runSolo(s, DIST[dist].m, aiInputs(o.ai, rand))) wins++;
   return wins / SAMPLES;
+}
+
+// The player drives the rival's own model at the rival's own PR (the top rivals: an Apex Zero at
+// PR 1100); the rival PR for a ~70% win, as a ratio of that, goes into LADDER.ratio.
+export function ladderRatios() {
+  const ratio = {};
+  for (const id of [...LADDER.roster, ...LADDER.endRivals]) {
+    const end = LADDER.endRivals.includes(id), rec = end ? 1100 : OPPONENTS[id].pr;
+    const mine = scaled(car(end ? 'apex' : OPPONENTS[id].carId), rec);
+    ratio[id] = {};
+    for (const dist of Object.keys(DIST)) {
+      const good = runSolo(mine, DIST[dist].m, GOOD);
+      let lo = rec * 0.5, hi = rec * 1.5;
+      for (let i = 0; i < 16; i++) {
+        const mid = (lo + hi) / 2;
+        if (winRate(id, dist, good, mid) > TARGET_WIN) lo = mid; else hi = mid;
+      }
+      ratio[id][dist] = +((lo + hi) / 2 / rec).toFixed(3);
+    }
+  }
+  return ratio;
+}
+
+// Win rate at the recommended PR (Good driving, the rival's model) for races 1..n.
+export function ladderCheck(n = 60) {
+  return Array.from({ length: n }, (_, i) => {
+    const e = ladderEvent(i + 1), o = OPPONENTS[e.opp], end = LADDER.endRivals.includes(e.opp);
+    const good = runSolo(scaled(car(end ? 'apex' : o.carId), e.rec), DIST[e.dist].m, GOOD);
+    return { n: e.n, rec: e.rec, opp: e.opp, dist: e.dist, env: e.env, win: e.win, rate: winRate(e.opp, e.dist, good, e.oppPR) };
+  });
 }
 
 // ---------------------------------------------------------------- pacing bot (GDD §9.5)
@@ -34,101 +64,57 @@ export const carGains = () => CARS.map(c => {
   return { car: c.id, stock, max, gain: +(max / stock - 1).toFixed(3) };
 });
 
-// A "mixed" player: taps at `tapsPerSec` while in the garage, races the next event once its PR
-// reaches the recommendation, otherwise replays its best won event or taps, and spends on
-// whatever adds the most PR per dollar. Each race costs `raceS` seconds including menus.
-// `buys` lists every purchase with how many seconds of the bot's income it cost at the time.
-export function pacing({ tapsPerSec = 2, raceS = 35, seed = 1 } = {}) {
+// A "mixed" player: taps at `tapsPerSec` in the garage, races the next ladder race whenever the
+// cooldown is over and its PR is within 15% of the recommendation, and spends on whatever adds
+// the most PR per dollar, or saves for the next car. Each race takes `raceS` seconds with
+// menus, and then RACE cools down for LADDER.cooldown. With `ads`, it skips every cooldown.
+// `log` has when each milestone race was won and each car bought; `gaps` the longest waits.
+export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads = false } = {}) {
   const rand = rng(seed);
-  // ~70% at the recommended PR (by definition), better or worse by the PR gap
   const winChance = (mine, rec) => Math.min(0.97, Math.max(0.05, 0.7 + (mine / rec - 1) * 3));
   const def = id => CARS.find(x => x.id === id);
   const tune = { kaze: blankTune(def('kaze')) };
-  let t = 0, cash = 0, car = 'kaze', cp = 0, auto = 0, stars = 0, idx = 0;
-  const won = new Set(), log = {}, buys = [], mark = k => { log[k] ??= t; };
+  let t = 0, cash = 0, car = 'kaze', cp = 0, auto = 0, best = 0, ready = 0, lastWin = 0, races = 0;
+  const log = {}, buys = [], waits = [], claimed = new Set();
   const spec = id => tuned(def(id), tune[id]);
-  const clickV = () => Math.round(tapBase(cp) * (1 + STAR_BONUS * stars));
-  const crew = () => (won.has('country_2') ? crewRate(auto) : 0);
-  const farmEvent = () => EVENTS.filter(x => won.has(x.id)).sort((a, b) => b.win - a.win)[0];
-  const income = () => Math.max(tapsPerSec * clickV(), (farmEvent()?.win || 0) / raceS) + crew() * clickV();
+  const clickV = () => Math.round(tapBase(cp) * (1 + STAR_BONUS * best));
+  const crew = () => (best >= 2 ? crewRate(auto) : 0);
+  const income = () => tapsPerSec * clickV() + crew() * clickV();
   const buy = (what, c) => { cash -= c; buys.push({ what, t, cost: c, secs: Math.round(c / income()) }); };
   const pass = s => { cash += crew() * clickV() * s; t += s; };
 
-  while (t < 8 * 3600 && idx < EVENTS.length) {
-    const e = EVENTS[idx], mine = pr(spec(car));
-    if (mine >= e.rec * 0.95) {
+  while (t < 10 * 3600 && best < until) {
+    const e = ladderEvent(best + 1), mine = pr(spec(car));
+    // short of the recommendation it still races (a loss pays LOSS_PCT), unless far off
+    if (t >= ready && mine >= e.rec * 0.85) {
       pass(raceS);
+      races++;
       if (rand() < winChance(mine, e.rec)) {
-        cash += e.win + e.first + (e.champion || 0);
-        won.add(e.id); stars++; idx++;
-        mark(`won ${e.id}`);
-      } else cash += e.win * 0.25;
+        cash += e.win;
+        best++;
+        for (const m of MILESTONES) if (m.stars <= best && !claimed.has(m.stars)) { claimed.add(m.stars); cash += m.cash; }
+        waits.push({ race: best, wait: Math.round((t - lastWin) / 60 * 10) / 10 });
+        lastWin = t;
+        if (best % 5 === 0 || best === 1) log[`race ${best}`] = t;
+      } else cash += Math.round(e.win * LOSS_PCT);
+      ready = ads ? t : t + LADDER.cooldown;
       continue;
     }
-    // shopping: the next car in the roster (what the goal chip points at), an upgrade, or a
-    // garage upgrade costing under 90 s (Tap Power) or 2 min (Pit Crew) of income
-    const nextCar = CARS.find(c => !tune[c.id] && !c.requires);
-    if (nextCar && cash >= nextCar.price) { buy(`car ${nextCar.tier}`, nextCar.price); tune[nextCar.id] = blankTune(nextCar); car = nextCar.id; mark(`car ${nextCar.tier}`); continue; }
+    const nextCar = CARS.find(c => !tune[c.id] && !(c.requires > best));
+    if (nextCar && cash >= nextCar.price) { buy(`car ${nextCar.tier}`, nextCar.price); tune[nextCar.id] = blankTune(nextCar); car = nextCar.id; log[`car ${nextCar.tier}`] = t; continue; }
     if (cash >= tapCost(cp) && tapCost(cp) < income() * 90) { buy(`tap ${cp + 1}`, tapCost(cp++)); continue; }
-    if (won.has('country_2') && cash >= crewCost(auto) && crewCost(auto) < income() * 120) { buy(`crew ${auto + 1}`, crewCost(auto++)); continue; }
+    if (best >= 2 && cash >= crewCost(auto) && crewCost(auto) < income() * 120) { buy(`crew ${auto + 1}`, crewCost(auto++)); continue; }
     const c = def(car);
     const ups = c.parts.filter(k => partCost(c, k, tune[car][k]) != null && !partLock(c, tune[car], k)).map(k => {
       const cost = partCost(c, k, tune[car][k]), gain = pr(tuned(c, { ...tune[car], [k]: tune[car][k] + 1 })) - mine;
       return { k, c: cost, v: gain / cost };
     }).filter(u => u.v > 0).sort((a, b) => b.v - a.v);
     const affordable = ups.find(u => u.c <= cash);
-    // only buy upgrades if they're cheaper than saving towards the next car would be
     if (affordable && (!nextCar || affordable.c < nextCar.price * 0.25 || ups[0].c > nextCar.price)) { buy(`${car} ${affordable.k}`, affordable.c); tune[car][affordable.k]++; continue; }
-    // earn: replay the best won event if it beats tapping, else tap for 10 s
-    const farm = farmEvent();
-    if (farm && farm.win / raceS > tapsPerSec * clickV()) { pass(raceS); cash += farm.win; }
-    else { cash += tapsPerSec * clickV() * 10; pass(10); }
+    // otherwise tap for 10 s (racing too early just pays the loss share and burns the cooldown)
+    cash += tapsPerSec * clickV() * 10;
+    pass(10);
   }
-  return { log, buys };
-}
-
-// Legend Series: the player drives an Apex Zero at each round's recommended PR. For every
-// rival and distance this finds the opponent PR ÷ recommended PR that gives a ~70% win,
-// which goes into LEGEND.ratio in src/data.js.
-export function legendBalance(rec = 1100) {
-  const ratio = {};
-  for (const id of LEGEND.rivals) {
-    ratio[id] = {};
-    const o = OPPONENTS[id], c = car(o.carId);
-    for (const dist of LEGEND.dists) {
-      const good = runSolo(scaled(car('apex'), rec), DIST[dist].m, GOOD);
-      const win = oppPR => {
-        const s = scaled(c, oppPR), rand = rng(hash(`${id}:${dist}`));
-        let wins = 0;
-        for (let i = 0; i < SAMPLES; i++) if (good <= runSolo(s, DIST[dist].m, aiInputs(o.ai, rand))) wins++;
-        return wins / SAMPLES;
-      };
-      let lo = rec * 0.6, hi = rec * 1.4;
-      for (let i = 0; i < 18; i++) {
-        const mid = (lo + hi) / 2;
-        if (win(mid) > TARGET_WIN) lo = mid; else hi = mid;
-      }
-      ratio[id][dist] = +((lo + hi) / 2 / rec).toFixed(3);
-    }
-  }
-  return ratio;
-}
-
-export function balance() {
-  return EVENTS.map(e => {
-    const c = car(OPPONENTS[e.opp].carId), dist = DIST[e.dist].m;
-    const good = runSolo(scaled(c, e.rec), dist, GOOD);
-    let lo = e.rec * 0.6, hi = e.rec * 1.4;
-    for (let i = 0; i < 18; i++) {
-      const mid = (lo + hi) / 2;
-      if (winRate(e, good, mid) > TARGET_WIN) lo = mid; else hi = mid;
-    }
-    const oppPR = Math.round((lo + hi) / 2);
-    return {
-      event: e.id, rec: e.rec, oppPR, currentPR: OPPONENTS[e.opp].pr,
-      winAtCurrent: winRate(e, good, OPPONENTS[e.opp].pr),
-      silver: +(good * 0.97).toFixed(2),
-      gold: +runSolo(scaled(c, e.rec * 1.15), dist, PERFECT).toFixed(2),
-    };
-  });
+  const gaps = [...waits].sort((a, b) => b.wait - a.wait).slice(0, 5);
+  return { log, buys, gaps, races, waits, minutes: Math.round(t / 6) / 10 };
 }

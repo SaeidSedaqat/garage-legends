@@ -148,7 +148,10 @@ export class RaceScene extends Phaser.Scene {
     const crowdScale = (1.6 * L.ppm) / PROPS.crowd.crop[3];
     const wallTop = wallBase - PROPS.barrier.red[3] * wallScale;
     layer('p-crowd', wallTop + PROPS.crowd.fence * crowdScale * 0.6, 1, crowdScale, true);
+    // the crowd is painted in daylight: at night it sits in the dark under the skyline
+    if (env.id === 'city') this.layers.at(-1).imgs.forEach(im => im.setTint(0x6c6496));
     layer('p-barrier', wallBase, 1, wallScale);
+    if (env.id === 'city') this.layers.at(-1).imgs.forEach(im => im.setTint(0x8c84b4));
     const dashH = Math.max(2 * DPR, th * 0.025);
     addTex(this, 'r-dash', drawDashes(L.ppm, dashH));
     layer('r-dash', L.trackTop + th * 0.62 + dashH / 2, 1);
@@ -179,6 +182,15 @@ export class RaceScene extends Phaser.Scene {
     this.smoke = [];
     this.pCar = new CarView(this, `car-${state.car}`, root);
     this.pCar.setWidth(L.carW);
+    // speed streaks over everything, and a tag at the screen edge while the rival is off it
+    this.fxLayer = this.add.container(0, 0);
+    root.add(this.fxLayer);
+    this.streaks = [];
+    this.oMark = this.add.text(0, L.laneO - L.carW * 0.12, '', {
+      fontFamily: FONT, fontSize: `${Math.round(13 * DPR)}px`, fontStyle: '900', color: '#ffffff',
+      backgroundColor: 'rgba(214, 69, 58, 0.85)', padding: { x: 7 * DPR, y: 3 * DPR },
+    }).setOrigin(0, 0.5).setVisible(false);
+    root.add(this.oMark);
 
     this.render(0);
   }
@@ -228,8 +240,14 @@ export class RaceScene extends Phaser.Scene {
     if (this.paused || !this.L) return;
     if (this.guide) this.lessonUpdate();
     if (this.freeze) return this.render(0);
-    const dt = Math.min(deltaMs / 1000, 0.05) * this.slow;
     const { p, o, D } = this;
+    // a close finish plays out in slow motion: both cars near the line, under 4 m apart
+    if (!this.photo && p.launched && o.launched && !p.finished && !o.finished && D - Math.max(p.dist, o.dist) < 25 && Math.abs(o.dist - p.dist) < 4) {
+      this.photo = true;
+      ui.raceMsg('Photo finish…');
+    }
+    if (this.photo && p.finished && o.finished) this.photo = false;
+    const dt = Math.min(deltaMs / 1000, 0.05) * this.slow * (this.photo ? 0.3 : 1);
     this.t += dt;
 
     if (!this.green && this.t >= this.greenAt) {
@@ -290,6 +308,8 @@ export class RaceScene extends Phaser.Scene {
   // rev → shift1 → shift2 → nitro → chain → free.
   lessonUpdate() {
     const p = this.p, z = zones(p.spec);
+    // over the line the lesson is over, whatever step it was on
+    if (p.finished || this.phase === 'done') return ui.lesson(null);
     const btn = document.getElementById('btn-shift'), tach = document.getElementById('tach');
     let card = null;
     for (let guard = 0; guard < 4; guard++) {
@@ -397,6 +417,12 @@ export class RaceScene extends Phaser.Scene {
     }
     if (nitroReady(o, this.ai.nitroQ)) nitro(o);
     step(o, h, this.D);
+    // and it never pulls ahead in the lesson: it shadows the player half a car behind, so the
+    // first race is a close win however it's driven
+    if (this.guide && !this.p.finished && o.dist > this.p.dist - 2) {
+      o.dist = Math.max(0, this.p.dist - 2);
+      o.v = Math.min(o.v, this.p.v);
+    }
   }
 
   updateTree() {
@@ -450,6 +476,31 @@ export class RaceScene extends Phaser.Scene {
       return true;
     });
 
+    // speed: streaks that thicken with speed and flare under nitro, and the camera pushing in
+    // on a burst (both left out with Reduce motion)
+    const calm = state.reducedMotion;
+    const fast = Phaser.Math.Clamp((p.v - 18) / 45, 0, 1) + (p.boost > 0 ? 0.5 : 0);
+    if (!calm && dt > 0 && !p.finished && fast > 0 && this.streaks.length < 36 && Math.random() < fast * 0.8) this.streak(fast);
+    this.streaks = this.streaks.filter(s => {
+      s.r.x -= scroll * s.k;
+      if (s.r.x + s.r.width < 0) { s.r.destroy(); return false; }
+      return true;
+    });
+    const zoom = !calm && p.boost > 0 && !p.finished ? 1.045 : 1, cam = this.cameras.main;
+    if (dt > 0) cam.setZoom(cam.zoom + (zoom - cam.zoom) * Math.min(1, dt * 5));
+
+    // the rival off screen: a tag at that edge with the gap in metres
+    const ox = sx(o.dist), gapM = Math.abs(o.dist - p.dist);
+    const behind = ox < 0, ahead = ox - L.carW * 0.92 > L.W;
+    const showMark = p.launched && o.launched && !p.finished && (behind || ahead) && gapM >= 1;
+    this.oMark.setVisible(showMark);
+    if (showMark) {
+      this.oMark.setText(behind ? `◀ ${OPPONENTS[this.event.opp].name} ${Math.round(gapM)} m` : `${OPPONENTS[this.event.opp].name} +${Math.round(gapM)} m ▶`);
+      // placed so it still sits at the screen edge while the camera is pushed in
+      const edge = behind ? 8 * DPR : L.W - 8 * DPR;
+      this.oMark.setOrigin(behind ? 0 : 1, 0.5).setX(L.W / 2 + (edge - L.W / 2) / cam.zoom);
+    }
+
     const z = zones(p.spec);
     const racing = p.launched && !p.finished && !topGear(p) && p.shifting <= 0;
     const nitroOn = p.launched && !p.finished && topGear(p) && p.nitro > 0;
@@ -484,6 +535,16 @@ export class RaceScene extends Phaser.Scene {
       this.smokeLayer.add(c);
       this.smoke.push({ c, life: 0, max: 0.08 + Math.random() * 0.08, vx: -(120 + Math.random() * 80) * DPR, vy: (Math.random() - 0.5) * 20 * DPR, grow: -2 });
     }
+  }
+
+  // A thin white streak flying past, over the track or low in the sky.
+  streak(fast) {
+    const L = this.L, len = L.carW * (0.4 + Math.random() * 0.8) * (0.6 + fast * 0.6);
+    const y = L.horizon + Math.random() * (L.trackBot - L.horizon);
+    const r = this.add.rectangle(L.W + Math.random() * L.W * 0.3, y, len, Math.max(1, DPR * (1 + Math.random())), 0xffffff, 0.12 + Math.min(1, fast) * 0.22)
+      .setOrigin(0, 0.5).setBlendMode(Phaser.BlendModes.ADD);
+    this.fxLayer.add(r);
+    this.streaks.push({ r, k: 1.6 + Math.random() * 1.2 });
   }
 
   puff() {
@@ -628,8 +689,6 @@ export class RaceScene extends Phaser.Scene {
       won, event, opp: this.oSpec.name, you: p.finishTime, them: o.finishTime,
       reaction: p.reaction, launch: p.launchLabel, shifts: p.shifts, nitros: p.nitros, ...res,
     }, {
-      again: () => this.scene.restart({ eventId: event.id }),
-      next: res.next ? () => ui.showMatchup(res.next.id) : null,
       garage: () => this.scene.start('garage'),
     });
   }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#121925">
   <title>Garage Legends</title>
-  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -36,15 +36,17 @@
         <button class="car-arrow prev panel" id="car-prev" aria-label="Previous car"></button>
         <button class="car-arrow next panel" id="car-next" aria-label="Next car"></button>
         <div class="car-buy panel" id="car-buy" hidden></div>
-        <button class="race-btn" id="btn-race"></button>
+        <!-- RACE starts the next race on the ladder; while it cools down, an ad can skip the wait -->
+        <div class="race-dock">
+          <button class="race-btn" id="btn-race"></button>
+          <button class="race-ad" id="btn-race-ad" hidden></button>
+        </div>
 
-        <!-- right-hand panel (bottom on phones held upright): upgrades, or the race list -->
+        <!-- right-hand panel (bottom on phones held upright): the upgrades -->
         <section class="dock" id="dock">
           <header class="dock-bar">
             <h2 id="dock-title">Upgrades</h2>
-            <button class="btn" id="dock-back" hidden>Back</button>
           </header>
-          <div class="tabs" id="sheet-tabs"></div>
           <div class="sheet-body" id="sheet-body"></div>
         </section>
       </div>
@@ -80,14 +82,14 @@
         </footer>
       </div>
 
-      <div class="loading" id="loading"><img class="loading-logo" src="assets/logo.png" alt="Garage Legends"><div class="loading-bar"><i></i></div></div>
+      <div class="loading" id="loading"><img class="loading-logo" src="assets/logo.webp" alt="Garage Legends"><div class="loading-bar"><i></i></div></div>
       <div class="modal" id="modal" hidden><div class="modal-card panel" id="modal-card"></div></div>
       <div class="toast" id="toast"></div>
       <div class="coach" id="coach" hidden><div class="coach-text" id="coach-text"></div></div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/phaser@4.2.1/dist/phaser.min.js"></script>
+  <script src="vendor/phaser.min.js"></script>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

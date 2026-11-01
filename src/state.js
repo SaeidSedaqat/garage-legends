@@ -1,10 +1,10 @@
 // Player progress, economy rules and saving (GDD §8, §9, §13).
 import {
-  CARS, EVENTS, ENVS, OPPONENTS, PARTS, PART_LEVELS, CREW,
-  AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, MEDALS, LOSS_PCT, LEGEND, ACHIEVEMENTS,
+  CARS, OPPONENTS, PARTS, PART_LEVELS, CREW, LADDER,
+  AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, LOSS_PCT, ACHIEVEMENTS,
 } from './data.js';
 import { pr } from './physics.js';
-import { blankTune, crewCost, crewRate, partCost, partLock, tapBase, tapCost, tuned } from './tuning.js';
+import { blankTune, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from './tuning.js';
 import { bus } from './events.js';
 
 const KEY = 'garageLegends.save.v2';
@@ -14,15 +14,16 @@ const CLICKS_PER_SECOND_CAP = 15;
 const level = (n, max) => Math.min(max, Math.max(0, Math.floor(+n || 0)));
 
 export const carDef = id => CARS.find(c => c.id === id);
-const LEGEND_ID = /^legend_(\d+)$/;
-export const eventDef = id => EVENTS.find(e => e.id === id) || (LEGEND_ID.test(id) ? legendEvent(+id.match(LEGEND_ID)[1]) : undefined);
+const RACE_ID = /^race_(\d+)$/;
+export const eventDef = id => (RACE_ID.test(id) ? ladderEvent(+id.match(RACE_ID)[1]) : undefined);
 
 const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 function fresh() {
   return {
-    v: 4, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune(carDef('kaze')) },
-    clickPower: 0, automation: 0, events: {}, milestones: [], tutorial: {}, legend: { round: 1, best: 0 }, achievements: {},
+    v: 5, cash: 0, car: 'kaze', owned: ['kaze'], tune: { kaze: blankTune(carDef('kaze')) },
+    // the ladder: the next race, the best race won, and when RACE is ready again (ms)
+    clickPower: 0, automation: 0, race: { n: 1, best: 0, readyAt: 0 }, milestones: [], tutorial: {}, achievements: {},
     stats: {
       clicks: 0, races: 0, wins: 0, perfectShifts: 0, fromClicks: 0, fromRaces: 0, fromAuto: 0,
       crits: 0, wrenches: 0, perfectLaunches: 0, bestChain: 0, photoFinishes: 0, comebacks: 0, flawlessWins: 0,
@@ -48,7 +49,8 @@ function migratePrototype(old) {
   s.clickPower = Math.min(3, Math.floor((old.click || 0) / 4));
   s.automation = 0;
   const map = { quarter: 'country_1', half: 'country_2', mile: 'country_3' };
-  for (const [k, id] of Object.entries(map)) if (old.races?.[k]?.won) s.events[id] = { won: true, stars: 1, best: old.races[k].best };
+  s.events = {};
+  for (const [k, id] of Object.entries(map)) if (old.races?.[k]?.won) s.events[id] = { won: true };
   s.muted = !!old.muted;
   return s;
 }
@@ -76,6 +78,27 @@ function migrateGarage(s) {
   s.automation = Math.max(0, Math.round((crew[level(s.automation, 5)] - CREW.base) / CREW.step));
 }
 
+// v4 saves had 17 named events in three venues and the Legend Series. The player starts the
+// ladder just above the hardest race they had won, by recommended PR.
+const OLD_REC = {
+  country_1: 90, country_2: 120, country_3: 150, country_4: 190, country_4b: 200, country_5: 230,
+  coast_1: 280, coast_2: 330, coast_2b: 365, coast_3: 400, coast_4: 470, coast_5: 540,
+  city_1: 600, city_2: 680, city_3: 760, city_4: 860, city_5: 960,
+};
+function migrateLadder(s) {
+  const won = Object.entries(s.events || {}).filter(([id, e]) => e?.won && OLD_REC[id]).map(([id]) => OLD_REC[id]);
+  const legend = Math.floor(+s.legend?.best || 0);
+  if (legend > 0) won.push(1000 * Math.pow(1.035, legend - 1));
+  const top = Math.max(0, ...won);
+  let best = 0;
+  while (top && ladderEvent(best + 1).rec <= top * 1.001) best++;
+  s.race = { n: best + 1, best, readyAt: 0 };
+  // milestones the new star count has passed are taken as claimed, not paid out in one go
+  s.milestones = MILESTONES.filter(m => m.stars <= best).map(m => m.stars);
+  delete s.events;
+  delete s.legend;
+}
+
 // Fills missing fields, clamps numbers and drops unknown ids, so a damaged save can't crash the game.
 function validate(raw) {
   const s = { ...fresh(), ...raw };
@@ -83,23 +106,19 @@ function validate(raw) {
   s.owned = ['kaze', ...(s.owned || []).filter(id => id !== 'kaze' && carDef(id))];
   if (!(s.v >= 3)) migrateParts(s);
   if (!(s.v >= 4)) migrateGarage(s);
-  s.v = 4;
+  if (!(s.v >= 5)) migrateLadder(s);
+  s.v = 5;
   const tune = {};
   for (const id of s.owned) tune[id] = Object.fromEntries(carDef(id).parts.map(k => [k, level(s.tune?.[id]?.[k], PART_LEVELS)]));
   s.tune = tune;
   if (!s.owned.includes(s.car)) s.car = 'kaze';
   s.clickPower = level(s.clickPower, 10000);
   s.automation = level(s.automation, 10000);
-  const events = {};
-  for (const [id, e] of Object.entries(s.events || {})) {
-    if (EVENTS.some(x => x.id === id)) events[id] = { won: !!e.won, stars: Math.min(3, Math.max(0, e.stars | 0)), best: e.best > 0 ? e.best : null };
-  }
-  s.events = events;
+  const n = Math.max(1, Math.floor(+s.race?.n || 1));
+  s.race = { n, best: Math.min(n - 1, Math.max(0, Math.floor(+s.race?.best || 0))), readyAt: Math.min(+s.race?.readyAt || 0, Date.now() + LADDER.cooldown * 1000) };
   s.stats = { ...fresh().stats, ...s.stats };
   s.achievements = Object.fromEntries(Object.entries(s.achievements || {}).filter(([id]) => ACHIEVEMENTS.some(a => a.id === id)));
   s.milestones = (s.milestones || []).filter(n => MILESTONES.some(m => m.stars === n));
-  const round = Math.max(1, Math.floor(+s.legend?.round || 1));
-  s.legend = { round, best: Math.min(round - 1, Math.max(0, Math.floor(+s.legend?.best || 0))) };
   // KM/H is the default; MPH only if the player picked it in Settings
   s.unitsChosen = !!s.unitsChosen;
   s.units = s.unitsChosen && s.units === 'mph' ? 'mph' : 'kmh';
@@ -107,7 +126,7 @@ function validate(raw) {
   s.musicOff = !!s.musicOff;
   // players who already raced or tuned (including migrated saves) skip the first-session guide
   s.tutorial = { ...s.tutorial };
-  if (Object.keys(s.events).length || s.stats.races > 0) s.tutorial = { upgraded: true, raced: true, done: true };
+  if (s.race.best > 0 || s.stats.races > 0) s.tutorial = { upgraded: true, raced: true, done: true };
   return s;
 }
 
@@ -184,7 +203,7 @@ export function buyUpgrade(part) {
   return true;
 }
 
-export const carLock = id => (carDef(id).requires && !state.events[carDef(id).requires]?.won ? `Win ${eventDef(carDef(id).requires).name}` : null);
+export const carLock = id => (carDef(id).requires > state.race.best ? `Win race ${carDef(id).requires}` : null);
 
 export function buyCar(id) {
   const c = carDef(id);
@@ -204,12 +223,13 @@ export function selectCar(id) {
 
 // ---------------------------------------------------------------- garage upgrades and income
 
-export const totalStars = () => Object.values(state.events).reduce((n, e) => n + e.stars, 0);
+// every race won on the ladder is a Reputation star
+export const totalStars = () => state.race.best;
 export const clickValue = () => Math.max(1, Math.round(tapBase(state.clickPower) * (1 + STAR_BONUS * totalStars())));
 // the Pit Crew starts tapping as soon as it's unlocked
 export const crewTaps = () => (autoUnlocked() ? crewRate(state.automation) : 0);
 export const autoRate = () => crewTaps() * clickValue();
-export const autoUnlocked = () => !!state.events[AUTO_UNLOCK]?.won;
+export const autoUnlocked = () => state.race.best >= AUTO_UNLOCK;
 
 export const garageCost = kind => (kind === 'click' ? tapCost(state.clickPower) : crewCost(state.automation));
 export function buyGarage(kind) {
@@ -252,17 +272,12 @@ export function grabWrench(value) {
 
 // ---------------------------------------------------------------- achievements
 
-const wonEvent = id => +!!state.events[id]?.won;
 const PROGRESS = {
   cars: () => state.owned.length,
   automation: () => state.automation,
   maxLevel: () => Math.max(0, ...Object.values(state.tune).flatMap(t => Object.values(t))),
   earned: () => state.stats.fromClicks + state.stats.fromRaces + state.stats.fromAuto,
-  stars: () => totalStars(),
-  legend: () => state.legend.best,
-  country_5: () => wonEvent('country_5'),
-  coast_5: () => wonEvent('coast_5'),
-  city_5: () => wonEvent('city_5'),
+  ladder: () => state.race.best,
 };
 export const achievementProgress = a => Math.min(a.goal, PROGRESS[a.track] ? PROGRESS[a.track]() : state.stats[a.track] || 0);
 
@@ -287,38 +302,21 @@ export function collectOffline() {
 
 setInterval(() => earn(autoRate() / 4, 'fromAuto'), 250);
 
-// ---------------------------------------------------------------- events and progression
+// ---------------------------------------------------------------- the race ladder
 
-export const envUnlocked = env => !env.requires || !!state.events[env.requires]?.won;
-export function eventUnlocked(e) {
-  const env = ENVS.find(v => v.id === e.env);
-  if (!envUnlocked(env)) return false;
-  const list = EVENTS.filter(x => x.env === e.env), i = list.indexOf(e);
-  return i === 0 || !!state.events[list[i - 1].id]?.won;
+export const nextRace = () => ladderEvent(state.race.n);
+
+// Seconds until RACE is ready again (0 when it is).
+export const raceCooldown = () => Math.max(0, (state.race.readyAt - Date.now()) / 1000);
+export function skipCooldown() {
+  state.race.readyAt = 0;
+  changed('race');
 }
-export const latestEvent = () => [...EVENTS].reverse().find(eventUnlocked) || EVENTS[0];
 
-// The opponent's car scaled to the opponent's PR (GDD §6.6). Legend rounds set their own PR.
+// The opponent's car scaled to the opponent's PR (GDD §6.6).
 export function opponentSpec(e) {
   const o = OPPONENTS[e.opp], c = carDef(o.carId), target = e.oppPR ?? o.pr, k = target / pr(c.stats);
   return { ...c.stats, launch: c.stats.launch * k, accel: c.stats.accel * k, topSpeed: c.stats.topSpeed * k, quirk: c.launchQuirk, name: o.name, pr: target };
-}
-
-export const starsFor = (e, won, time) => (!won ? 0 : time <= MEDALS[e.id][1] ? 3 : time <= MEDALS[e.id][0] ? 2 : 1);
-
-// ---------------------------------------------------------------- Legend Series
-
-export const legendUnlocked = () => !!state.events[LEGEND.unlock]?.won;
-
-// Round n of the endless Legend Series, shaped like a campaign event.
-export function legendEvent(n) {
-  const L = LEGEND, i = n - 1, opp = L.rivals[i % L.rivals.length], dist = L.dists[i % L.dists.length];
-  const fast = Math.log(L.softCap / L.rec) / Math.log(1 + L.growth); // rounds until the soft cap
-  const rec = Math.round(i <= fast ? L.rec * Math.pow(1 + L.growth, i) : L.softCap * Math.pow(1 + L.lateGrowth, i - fast));
-  return {
-    id: `legend_${n}`, legend: n, env: L.envs[i % L.envs.length], name: `Legend Round ${n}`, dist, opp, rec,
-    oppPR: Math.round(rec * L.ratio[opp][dist]), win: roundNice(L.win * Math.pow(1 + L.winGrowth, i)), first: 0,
-  };
 }
 
 function payout(lines, won, perfects) {
@@ -331,16 +329,10 @@ function payout(lines, won, perfects) {
   return total;
 }
 
-// A won round moves the series on; a lost one can be retried as often as needed.
-function recordLegend(e, won, perfects) {
-  const lines = [[won ? 'Win' : 'Finish', won ? e.win : Math.round(e.win * LOSS_PCT)]];
-  if (won) {
-    state.legend.round = Math.max(state.legend.round, e.legend + 1);
-    state.legend.best = Math.max(state.legend.best, e.legend);
-  }
-  const total = payout(lines, won, perfects);
+// A rewarded ad on the result screen pays the race's prize again.
+export function bonusPayout(n) {
+  earn(n, 'fromRaces');
   changed('race');
-  return { lines, total, firstWin: won, stars: 0, newStars: 0, milestones: [], next: won ? legendEvent(e.legend + 1) : null, env: null };
 }
 
 // Race feats for achievements: perfect launch, the longest nitro chain, and (for wins) an
@@ -355,22 +347,16 @@ function recordFeats(won, f) {
   s.photoFinishes += f.margin < 0.05 ? 1 : 0;
 }
 
-// Applies a finished race and returns what it paid and unlocked (GDD §9.4, §7.3–§7.5).
+// Applies a finished race and returns what it paid (GDD §9.4). A win moves the ladder up a rung
+// and is a Reputation star; either way RACE cools down.
 export function recordRace(e, won, time, perfects, feats) {
   if (feats) recordFeats(won, feats);
-  if (e.legend) return recordLegend(e, won, perfects);
-  const rec = (state.events[e.id] ||= { won: false, stars: 0, best: null });
-  const firstWin = won && !rec.won;
   const starsBefore = totalStars();
-  const stars = starsFor(e, won, time);
-  const newStars = Math.max(0, stars - rec.stars);
-  if (won) rec.won = true;
-  rec.stars = Math.max(rec.stars, stars);
-  if (won && (rec.best == null || time < rec.best)) rec.best = time;
-
+  if (won && e.n >= state.race.n) {
+    state.race.n = e.n + 1;
+    state.race.best = Math.max(state.race.best, e.n);
+  }
   const lines = [[won ? 'Win' : 'Finish', won ? e.win : Math.round(e.win * LOSS_PCT)]];
-  if (firstWin) lines.push(['First-win bonus', e.first]);
-  if (firstWin && e.champion) lines.push(['Champion bonus', e.champion]);
   const milestones = [];
   for (const m of MILESTONES) {
     if (m.stars > starsBefore && m.stars <= totalStars() && !state.milestones.includes(m.stars)) {
@@ -379,12 +365,8 @@ export function recordRace(e, won, time, perfects, feats) {
       if (m.cash) lines.push([`${m.stars}★ milestone`, m.cash]);
     }
   }
+  state.race.readyAt = Date.now() + LADDER.cooldown * 1000;
   const total = payout(lines, won, perfects);
-
-  // the next event: the venue's next one, or after a champion win the new venue's first
-  const list = EVENTS.filter(x => x.env === e.env);
-  const env = firstWin ? ENVS.find(v => v.requires === e.id) : null;
-  const next = firstWin ? list[list.indexOf(e) + 1] || (env && EVENTS.find(x => x.env === env.id)) : null;
   changed('race');
-  return { lines, total, firstWin, stars, newStars, milestones, next, env };
+  return { lines, total, newStars: totalStars() - starsBefore, milestones };
 }

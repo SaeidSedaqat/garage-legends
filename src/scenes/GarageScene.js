@@ -14,8 +14,9 @@ export class GarageScene extends Phaser.Scene {
     music.play('garage');
     this.car = null;
     this.build();
-    // fetch every car's scene in the background, so flipping cars never waits on one
-    for (const id of Object.keys(SCENES)) this.sceneFor(id);
+    // fetch every car's scene in the background, so flipping cars never waits on one; held back
+    // a little so the first load is only what the first screen needs
+    this.time.delayedCall(15000, () => { for (const id of Object.keys(SCENES)) this.sceneFor(id); });
     this.scale.on('resize', this.build, this);
     const offs = [
       bus.on('focus', () => this.placeCar(true)),
