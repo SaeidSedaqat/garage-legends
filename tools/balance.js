@@ -4,7 +4,7 @@
 // rate up the ladder, and runs a pacing bot through it.
 import { CARS, OPPONENTS, DIST, LADDER, PART_LEVELS, STAR_BONUS, MILESTONES, LOSS_PCT } from '../src/data.js';
 import { pr, rng, hash, runSolo, aiInputs } from '../src/physics.js';
-import { blankTune, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
+import { blankTune, cooldownAfter, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
 
 const SAMPLES = 400;
 const TARGET_WIN = 0.7;
@@ -67,7 +67,7 @@ export const carGains = () => CARS.map(c => {
 // A "mixed" player: taps at `tapsPerSec` in the garage, races the next ladder race whenever the
 // cooldown is over and its PR is within 15% of the recommendation, and spends on whatever adds
 // the most PR per dollar, or saves for the next car. Each race takes `raceS` seconds with
-// menus, and then RACE cools down for LADDER.cooldown. With `ads`, it skips every cooldown.
+// menus, and then RACE cools down (cooldownAfter). With `ads`, it skips every cooldown.
 // `log` has when each milestone race was won and each car bought; `gaps` the longest waits.
 export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads = false } = {}) {
   const rand = rng(seed);
@@ -85,21 +85,7 @@ export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads =
 
   while (t < 10 * 3600 && best < until) {
     const e = ladderEvent(best + 1), mine = pr(spec(car));
-    // short of the recommendation it still races (a loss pays LOSS_PCT), unless far off
-    if (t >= ready && mine >= e.rec * 0.85) {
-      pass(raceS);
-      races++;
-      if (rand() < winChance(mine, e.rec)) {
-        cash += e.win;
-        best++;
-        for (const m of MILESTONES) if (m.stars <= best && !claimed.has(m.stars)) { claimed.add(m.stars); cash += m.cash; }
-        waits.push({ race: best, wait: Math.round((t - lastWin) / 60 * 10) / 10 });
-        lastWin = t;
-        if (best % 5 === 0 || best === 1) log[`race ${best}`] = t;
-      } else cash += Math.round(e.win * LOSS_PCT);
-      ready = ads ? t : t + LADDER.cooldown;
-      continue;
-    }
+    // shop first: with no cooldown early on, racing first would never leave time to upgrade
     const nextCar = CARS.find(c => !tune[c.id] && !(c.requires > best));
     if (nextCar && cash >= nextCar.price) { buy(`car ${nextCar.tier}`, nextCar.price); tune[nextCar.id] = blankTune(nextCar); car = nextCar.id; log[`car ${nextCar.tier}`] = t; continue; }
     if (cash >= tapCost(cp) && tapCost(cp) < income() * 90) { buy(`tap ${cp + 1}`, tapCost(cp++)); continue; }
@@ -111,6 +97,22 @@ export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads =
     }).filter(u => u.v > 0).sort((a, b) => b.v - a.v);
     const affordable = ups.find(u => u.c <= cash);
     if (affordable && (!nextCar || affordable.c < nextCar.price * 0.25 || ups[0].c > nextCar.price)) { buy(`${car} ${affordable.k}`, affordable.c); tune[car][affordable.k]++; continue; }
+    // nothing worth buying: race when RACE is ready, even a little short of the recommendation
+    // (a loss pays LOSS_PCT), unless far off
+    if (t >= ready && mine >= e.rec * 0.85) {
+      pass(raceS);
+      races++;
+      if (rand() < winChance(mine, e.rec)) {
+        cash += e.win;
+        best++;
+        for (const m of MILESTONES) if (m.stars <= best && !claimed.has(m.stars)) { claimed.add(m.stars); cash += m.cash; }
+        waits.push({ race: best, wait: Math.round((t - lastWin) / 60 * 10) / 10 });
+        lastWin = t;
+        if (best % 5 === 0 || best === 1) log[`race ${best}`] = t;
+      } else cash += Math.round(e.win * LOSS_PCT);
+      ready = ads ? t : t + cooldownAfter(e.n);
+      continue;
+    }
     // otherwise tap for 10 s (racing too early just pays the loss share and burns the cooldown)
     cash += tapsPerSec * clickV() * 10;
     pass(10);

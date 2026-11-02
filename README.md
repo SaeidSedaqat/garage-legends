@@ -21,8 +21,9 @@ Close the black window to stop it.
   - **‹ ›** beside the car flip through every car. Owned ones are driven straight away; others
     go on show with their stats and a Buy button (arrow keys work too).
   - **RACE** (bottom left, or R) starts the next race straight away: no menus. It shows the race
-    number and its recommended PR (⚠ when your car is well short). After every race it cools
-    down for 1 minute; **Race now** beside it plays a rewarded ad to skip the wait.
+    number and its recommended PR (⚠ when your car is well short). The first 10 races have no
+    wait; after that RACE cools down for 15 s, 5 s longer each race up to 1 minute from race 20.
+    **Race now** beside it plays a rewarded ad to skip the wait.
 - **Upgrades** (the panel): tap one to buy its next level. Each row says what the part does and
   how much one level adds.
   - The car's own four parts. Every car has its own set, e.g. the Bulldog has a Big-Block V8,
@@ -50,9 +51,12 @@ Close the black window to stop it.
   reward.
 - **Progress: the race ladder.** One endless line of races (`LADDER` in `src/data.js`). Every
   win moves you up a rung where the recommended PR is 4% higher, so the next race usually wants
-  an upgrade or two; a loss keeps the same race (and pays 25% of the prize). Rivals get sharper
-  as you climb, distances mix in from race 5, and the venue moves from Countryside (to PR 260)
-  to Coastal (to PR 560) to City. Every win is a Reputation star: each adds 5% to tap income,
+  an upgrade or two; a loss keeps the same race (and pays 25% of the prize). Early races ask
+  for up to 22% more PR than that curve (fading out by race 30), so the starter cars are matched
+  and some races are lost until you upgrade. A new rival takes over every 2–3 races at first
+  (`LADDER.debut`), half-mile races start at race 4 and a mile comes every third race from race
+  8. Coastal opens at race 7 and City at race 16; from then on the races take turns across the
+  open venues. Every win is a Reputation star: each adds 5% to tap income,
   and star milestones pay out cash (62★ also gives the "Garage Legend" title). Race 62 unlocks
   the Apex Zero; past PR 1290 the ladder only climbs 1% a race and five top rivals take turns.
 - **Rewarded ads** (test mode): **Race now** skips the cooldown, and **2× prize** on the result
@@ -93,9 +97,10 @@ while you're away (up to 2 hours).
 
 Open http://localhost:8080/tools/balance.html. It shows, for races 1–60, the win rate of a player
 at the recommended PR with Good launches, shifts and nitro (target 55–85%; the ladder sits at
-60–88%), runs the pacing bot, and works out `LADDER.ratio` (rival PR ÷ recommended PR for a ~70%
+63–88%), runs the pacing bot, and works out `LADDER.ratio` (rival PR ÷ recommended PR for a ~70%
 win, per rival and distance). After changing cars, rivals or sim constants in `src/data.js`,
-re-run it and copy the ratios back.
+re-run it and copy the ratios back. Each roster rival's `pr` is the recommended PR in the middle
+of their stint (from `debut`); the ratios are worked out there.
 
 Skill and upgrades both matter. At a race's recommended PR:
 
@@ -110,24 +115,26 @@ Skill and upgrades both matter. At a race's recommended PR:
 Rivals' form varies a little from race to race (`SIM.aiForm`), so results aren't all-or-nothing.
 
 The economy is tuned with the pacing bot (`pacing()` in `tools/balance.js`). The bot taps,
-races whenever RACE is ready and its PR is within 15% of the recommendation, spends on whatever
-adds the most PR per dollar or saves for the next car. At 2 taps/s:
+spends on whatever adds the most PR per dollar or saves for the next car, and races whenever
+RACE is ready and its PR is within 15% of the recommendation:
 
 | Milestone | Bot (1.5 / 2 / 2.5 taps/s) | Watching every skip ad |
 |---|---|---|
-| Car 2 | 6 / 6 / 5 min | 8 min |
-| Car 3 | 22 / 20 / 17 min | 14 min |
-| Race 30 (Coastal) | 47 min | 22 min |
-| Race 40 | 64 min | 32 min |
-| Race 62 (PR ~985, Apex Zero) | 1h56 / 1h56 / 2h11 | 65 min |
+| Car 2 | 6 min | 6 min |
+| Race 10 | 7 min | 7 min |
+| Car 3 | 11 min | 9 min |
+| Race 30 | 32 min | 17 min |
+| Race 40 | 49 min | 22 min |
+| Race 62 (PR ~985, Apex Zero) | 1h40 / 1h43 / 1h59 | 61 min |
 
-Up to about race 50 the 1-minute cooldown sets the pace (a race every 1.5–2 minutes, with
-upgrades bought in between); after that the next car's price does, and the longest wait between
-two wins is about 7½ minutes.
+The first 10 races come as fast as upgrades allow (a win every 30–90 s); from about race 20 to
+50 the 1-minute cooldown sets the pace (a race every 1.5–2 minutes, with upgrades bought in
+between); after that the next car's price does. Most waits between two wins stay under 6
+minutes; the longest is one wait of up to ~20 minutes around race 59, saving for the next car.
 
 To get there:
-- A win pays `LADDER.reward` × (rec ÷ 90)^`rewardPow` ($60 at race 1, $1,800 at race 30,
-  $79K at race 62); star milestones top it up.
+- A win pays `LADDER.reward` × (rec ÷ 90)^`rewardPow`, with rec from the curve before the early
+  lift ($60 at race 1, $1,800 at race 30, $79K at race 62); star milestones top it up.
 - Car prices: Hikari $2,500, Kodiak $18,000, Valken $40,000, Sora $120,000, Furia $220,000.
 - Part prices are set per car (`upgradeBase`).
 - Tap Power and Pit Crew never max out. Level n costs `cost × n^pow` (`TAP`, `CREW` in

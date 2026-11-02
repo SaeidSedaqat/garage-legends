@@ -4,7 +4,7 @@ import {
   AUTO_UNLOCK, CRIT, OFFLINE, STAR_BONUS, MILESTONES, LOSS_PCT, ACHIEVEMENTS,
 } from './data.js';
 import { pr } from './physics.js';
-import { blankTune, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from './tuning.js';
+import { blankTune, cooldownAfter, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from './tuning.js';
 import { bus } from './events.js';
 
 const KEY = 'garageLegends.save.v2';
@@ -348,7 +348,7 @@ function recordFeats(won, f) {
 }
 
 // Applies a finished race and returns what it paid (GDD §9.4). A win moves the ladder up a rung
-// and is a Reputation star; either way RACE cools down.
+// and is a Reputation star; either way RACE cools down (after the first few races).
 export function recordRace(e, won, time, perfects, feats) {
   if (feats) recordFeats(won, feats);
   const starsBefore = totalStars();
@@ -365,7 +365,7 @@ export function recordRace(e, won, time, perfects, feats) {
       if (m.cash) lines.push([`${m.stars}★ milestone`, m.cash]);
     }
   }
-  state.race.readyAt = Date.now() + LADDER.cooldown * 1000;
+  state.race.readyAt = Date.now() + cooldownAfter(e.n) * 1000;
   const total = payout(lines, won, perfects);
   changed('race');
   return { lines, total, newStars: totalStars() - starsBefore, milestones };

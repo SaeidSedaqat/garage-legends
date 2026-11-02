@@ -146,21 +146,21 @@ const ACE = { name: 'Ace', reaction: [0.2, 0.02], launch: 0.97, shift: { perfect
 // Good launches and Good shifts wins about 70% of the time. `portrait` is the driver's
 // [x, y, w, h] on assets/portraits.webp.
 export const OPPONENTS = {
-  rusty: { name: 'The Rusty', carId: 'kaze', pr: 96, ai: SLOPPY, art: 'kaze', tint: [175, 0.45, 0.75], portrait: [9, 23, 128, 144] },
-  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 110, ai: STEADY, art: 'kaze', tint: [170, 0.25, 1.1], portrait: [291, 18, 110, 150] },
-  mira: { name: 'Mira', carId: 'ronin', pr: 137, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05], portrait: [429, 26, 106, 143] },
-  hank: { name: 'Hank', carId: 'ronin', pr: 182, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9], portrait: [698, 21, 139, 156] },
-  fox: { name: 'Silver Fox', carId: 'hikari', pr: 214, ai: STEADY, art: 'hikari', tint: [0, 0.08, 1.35], portrait: [846, 23, 113, 144] },
-  sol: { name: 'Sol', carId: 'hikari', pr: 262, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15], portrait: [1110, 22, 120, 147] },
-  marina: { name: 'Marina', carId: 'bulldog', pr: 320, ai: STEADY, art: 'bulldog', tint: [195, 1, 0.65], portrait: [156, 188, 114, 136] },
-  rocco: { name: 'Rocco', carId: 'bulldog', pr: 369, ai: SHARP, art: 'bulldog', tint: [100, 0.8, 0.75], portrait: [839, 190, 121, 134] },
-  jade: { name: 'Jade', carId: 'kodiak', pr: 442, ai: SHARP, art: 'kodiak', tint: [150, 1, 1.1], portrait: [295, 183, 105, 140] },
-  reef: { name: 'Captain Reef', carId: 'valken', pr: 508, ai: SHARP, art: 'valken', tint: [0, 1, 0.6], portrait: [976, 186, 117, 138] },
-  neon: { name: 'Neon', carId: 'valken', pr: 544, ai: SHARP, art: 'furia', tint: [-125, 1.15, 1.05], portrait: [17, 339, 111, 140] },
-  vex: { name: 'Vex', carId: 'sora', pr: 615, ai: { ...SHARP, launch: 1 }, art: 'sora', tint: [-100, 1.2, 0.8], portrait: [155, 347, 111, 132] },
-  duke: { name: 'Duke', carId: 'furia', pr: 713, ai: SHARP, art: 'furia', tint: [-85, 1.1, 0.9], portrait: [292, 344, 107, 135] },
-  aria: { name: 'Aria', carId: 'furia', pr: 770, ai: ACE, art: 'furia', tint: [130, 1.1, 1], portrait: [427, 345, 113, 135] },
-  legend: { name: 'The Legend', carId: 'volta', pr: 863, ai: ACE, art: 'volta', tint: [0, 1, 0.45], portrait: [416, 712, 94, 110] },
+  rusty: { name: 'The Rusty', carId: 'kaze', pr: 115, ai: SLOPPY, art: 'kaze', tint: [175, 0.45, 0.75], portrait: [9, 23, 128, 144] },
+  dusty: { name: 'Dusty Dan', carId: 'kaze', pr: 122, ai: STEADY, art: 'kaze', tint: [170, 0.25, 1.1], portrait: [291, 18, 110, 150] },
+  mira: { name: 'Mira', carId: 'ronin', pr: 130, ai: STEADY, art: 'ronin', tint: [200, 1.1, 1.05], portrait: [429, 26, 106, 143] },
+  hank: { name: 'Hank', carId: 'ronin', pr: 143, ai: STEADY, art: 'ronin', tint: [120, 0.9, 0.9], portrait: [698, 21, 139, 156] },
+  fox: { name: 'Silver Fox', carId: 'hikari', pr: 159, ai: STEADY, art: 'hikari', tint: [0, 0.08, 1.35], portrait: [846, 23, 113, 144] },
+  sol: { name: 'Sol', carId: 'hikari', pr: 180, ai: STEADY, art: 'hikari', tint: [-150, 1.3, 1.15], portrait: [1110, 22, 120, 147] },
+  marina: { name: 'Marina', carId: 'bulldog', pr: 205, ai: STEADY, art: 'bulldog', tint: [195, 1, 0.65], portrait: [156, 188, 114, 136] },
+  rocco: { name: 'Rocco', carId: 'bulldog', pr: 232, ai: SHARP, art: 'bulldog', tint: [100, 0.8, 0.75], portrait: [839, 190, 121, 134] },
+  jade: { name: 'Jade', carId: 'kodiak', pr: 264, ai: SHARP, art: 'kodiak', tint: [150, 1, 1.1], portrait: [295, 183, 105, 140] },
+  reef: { name: 'Captain Reef', carId: 'valken', pr: 304, ai: SHARP, art: 'valken', tint: [0, 1, 0.6], portrait: [976, 186, 117, 138] },
+  neon: { name: 'Neon', carId: 'valken', pr: 369, ai: SHARP, art: 'furia', tint: [-125, 1.15, 1.05], portrait: [17, 339, 111, 140] },
+  vex: { name: 'Vex', carId: 'sora', pr: 449, ai: { ...SHARP, launch: 1 }, art: 'sora', tint: [-100, 1.2, 0.8], portrait: [155, 347, 111, 132] },
+  duke: { name: 'Duke', carId: 'furia', pr: 547, ai: SHARP, art: 'furia', tint: [-85, 1.1, 0.9], portrait: [292, 344, 107, 135] },
+  aria: { name: 'Aria', carId: 'furia', pr: 665, ai: ACE, art: 'furia', tint: [130, 1.1, 1], portrait: [427, 345, 113, 135] },
+  legend: { name: 'The Legend', carId: 'volta', pr: 778, ai: ACE, art: 'volta', tint: [0, 1, 0.45], portrait: [416, 712, 94, 110] },
   // the top of the ladder: their PR is set per race (see LADDER below)
   storm: { name: 'Storm', carId: 'apex', pr: 1000, ai: ACE, art: 'apex', tint: [0, 1, 1.6], portrait: [700, 191, 127, 133] },
   ghost: { name: 'Ghost', carId: 'volta', pr: 1000, ai: ACE, art: 'volta', tint: [0, 1, 0.8], portrait: [977, 26, 118, 141] },
@@ -174,13 +174,13 @@ export const OPPONENTS = {
 // One endless line of races, no menus: RACE starts the next one. Each win moves the player up a
 // rung, where the recommended PR is `growth` higher (so the next race wants an upgrade or two),
 // up to `softCap` (about a maxed Apex Zero) and only `lateGrowth` after that. A loss keeps the
-// same race. After every race RACE cools down for `cooldown` seconds (a rewarded ad skips it).
+// same race. After the first few races RACE cools down between races (a rewarded ad skips it).
 //
-// The rival is the last of `roster` whose own PR is under `pick` × the recommended PR, so each
-// driver is met a few times as the ladder climbs; past the roster, `endRivals` take turns.
+// Each driver in `roster` races from their `debut` until the next one's; from `endFrom` the
+// `endRivals` take turns.
 // `ratio` is rival PR ÷ recommended PR for a ~70% win with Good launches, shifts and nitro, per
 // rival and distance, from tools/balance.js (`ladderRatios()`).
-// A win pays `reward` × (rec ÷ `rec`)^`rewardPow`; a loss pays LOSS_PCT of that. Every win is
+// A win pays `reward` × (curve rec ÷ `rec`)^`rewardPow`; a loss pays LOSS_PCT of that. Every win is
 // also a Reputation star.
 export const LADDER = {
   rec: 90,
@@ -189,28 +189,38 @@ export const LADDER = {
   lateGrowth: 0.01,
   reward: 60,
   rewardPow: 3,
+  // early races ask for up to `lift` more PR than the curve, fading out over `liftFade` races,
+  // so the starter cars are matched and an upgrade is what wins the next race (prizes stay on the curve)
+  lift: 0.22,
+  liftFade: 28,
+  // no cooldown for the first `freeRaces`, then `cooldownStart` s, `cooldownStep` s longer each race up to `cooldown`
   cooldown: 60,
-  pick: 1.07,
+  freeRaces: 10,
+  cooldownStart: 15,
+  cooldownStep: 5,
+  // each rival takes over at its `debut` race: every 2–3 races early on, further apart later
   roster: ['rusty', 'dusty', 'mira', 'hank', 'fox', 'sol', 'marina', 'rocco', 'jade', 'reef', 'neon', 'vex', 'duke', 'aria', 'legend'],
+  debut: [1, 3, 5, 8, 11, 14, 18, 22, 26, 30, 35, 40, 45, 50, 54],
+  endFrom: 58,
   endRivals: ['storm', 'ghost', 'blaze', 'frost', 'crown'],
-  // venue by recommended PR (`upTo`), then taking turns once the ladder tops out
-  envs: [{ id: 'countryside', upTo: 260 }, { id: 'coastal', upTo: 560 }, { id: 'city', upTo: 1290 }],
+  // each venue opens at race `from`; from then on the races take turns across the open venues
+  envs: [{ id: 'countryside', from: 1 }, { id: 'coastal', from: 7 }, { id: 'city', from: 16 }],
   ratio: {
-    rusty: { quarter: 1.046, half: 1.017, mile: 0.982 },
-    dusty: { quarter: 0.895, half: 0.943, mile: 0.953 },
-    mira: { quarter: 0.913, half: 0.944, mile: 0.96 },
-    hank: { quarter: 0.939, half: 0.956, mile: 0.966 },
-    fox: { quarter: 0.938, half: 0.963, mile: 0.964 },
-    sol: { quarter: 0.933, half: 0.957, mile: 0.976 },
-    marina: { quarter: 0.947, half: 0.969, mile: 0.974 },
-    rocco: { quarter: 0.881, half: 0.928, mile: 0.948 },
-    jade: { quarter: 0.879, half: 0.914, mile: 0.937 },
-    reef: { quarter: 0.859, half: 0.903, mile: 0.943 },
-    neon: { quarter: 0.862, half: 0.903, mile: 0.944 },
-    vex: { quarter: 0.849, half: 0.914, mile: 0.947 },
-    duke: { quarter: 0.823, half: 0.897, mile: 0.936 },
-    aria: { quarter: 0.766, half: 0.852, mile: 0.91 },
-    legend: { quarter: 0.776, half: 0.857, mile: 0.896 },
+    rusty: { quarter: 1.043, half: 1.017, mile: 0.986 },
+    dusty: { quarter: 0.901, half: 0.948, mile: 0.957 },
+    mira: { quarter: 0.91, half: 0.943, mile: 0.959 },
+    hank: { quarter: 0.93, half: 0.95, mile: 0.96 },
+    fox: { quarter: 0.928, half: 0.955, mile: 0.959 },
+    sol: { quarter: 0.922, half: 0.95, mile: 0.966 },
+    marina: { quarter: 0.939, half: 0.963, mile: 0.966 },
+    rocco: { quarter: 0.866, half: 0.896, mile: 0.94 },
+    jade: { quarter: 0.86, half: 0.88, mile: 0.921 },
+    reef: { quarter: 0.841, half: 0.881, mile: 0.924 },
+    neon: { quarter: 0.852, half: 0.892, mile: 0.935 },
+    vex: { quarter: 0.863, half: 0.908, mile: 0.937 },
+    duke: { quarter: 0.856, half: 0.894, mile: 0.934 },
+    aria: { quarter: 0.749, half: 0.85, mile: 0.91 },
+    legend: { quarter: 0.771, half: 0.856, mile: 0.909 },
     storm: { quarter: 0.745, half: 0.85, mile: 0.902 },
     ghost: { quarter: 0.743, half: 0.849, mile: 0.887 },
     blaze: { quarter: 0.741, half: 0.839, mile: 0.879 },

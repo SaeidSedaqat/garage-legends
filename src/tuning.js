@@ -1,6 +1,6 @@
 // Car parts (GDD §8): what a car's parts do to its stats and what the next level costs.
 // Pure functions of a car definition and its part levels, shared by the game and tools/balance.js.
-import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP, TAP, CREW, LADDER, OPPONENTS } from './data.js';
+import { PARTS, PART_LEVELS, PART_STEP, PART_GROWTH, PART_COST, NITRO_STEP, TAP, CREW, LADDER } from './data.js';
 
 export const partName = (car, id) => car.partNames?.[id] || PARTS[id].name;
 export const blankTune = car => Object.fromEntries(car.parts.map(id => [id, 0]));
@@ -49,15 +49,21 @@ export function ladderEvent(n) {
   const L = LADDER, i = n - 1;
   const fast = Math.log(L.softCap / L.rec) / Math.log(1 + L.growth); // races until the soft cap
   const top = i > fast;
-  const rec = Math.round(top ? L.softCap * Math.pow(1 + L.lateGrowth, i - fast) : L.rec * Math.pow(1 + L.growth, i));
-  const last = OPPONENTS[L.roster.at(-1)];
-  const opp = rec > last.pr * L.pick
-    ? L.endRivals[i % L.endRivals.length]
-    : [...L.roster].reverse().find(id => OPPONENTS[id].pr <= rec * L.pick) || L.roster[0];
-  const dist = n <= 4 ? 'quarter' : rec < 300 ? ['quarter', 'half'][n % 2] : ['quarter', 'half', 'mile'][n % 3];
-  const env = top ? L.envs[i % L.envs.length].id : L.envs.find(v => rec <= v.upTo).id;
+  const curve = Math.round(top ? L.softCap * Math.pow(1 + L.lateGrowth, i - fast) : L.rec * Math.pow(1 + L.growth, i));
+  // the first race is the lesson and stays easy; the lift starts at race 2
+  const rec = n < 2 ? curve : Math.round(curve * (1 + L.lift * Math.max(0, 1 - (n - 2) / L.liftFade)));
+  const opp = n >= L.endFrom ? L.endRivals[i % L.endRivals.length] : L.roster[L.debut.findLastIndex(d => d <= n)];
+  // a mile shows up from race 8: one in three races from there
+  const dist = n <= 3 ? 'quarter' : n < 8 ? ['quarter', 'half'][n % 2] : ['quarter', 'half', 'mile'][n % 3];
+  // a new venue hosts its first race, then the open venues take turns
+  const open = L.envs.filter(v => v.from <= n);
+  const env = open[open.length - 1 - ((n - open.at(-1).from) % open.length)].id;
   return {
     id: `race_${n}`, n, name: `Race ${n}`, env, dist, opp, rec,
-    oppPR: Math.round(rec * L.ratio[opp][dist]), win: roundNice(L.reward * Math.pow(rec / L.rec, L.rewardPow)),
+    oppPR: Math.round(rec * L.ratio[opp][dist]), win: roundNice(L.reward * Math.pow(curve / L.rec, L.rewardPow)),
   };
 }
+
+// Seconds RACE cools down after race n: none for the first races, then growing to LADDER.cooldown.
+export const cooldownAfter = n => (n <= LADDER.freeRaces ? 0
+  : Math.min(LADDER.cooldown, LADDER.cooldownStart + LADDER.cooldownStep * (n - LADDER.freeRaces - 1)));
