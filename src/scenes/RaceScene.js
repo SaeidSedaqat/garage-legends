@@ -161,9 +161,10 @@ export class RaceScene extends Phaser.Scene {
     put(this.add.image(0, L.laneP, 'r-marks').setOrigin(0, 1), -4);
     put(this.add.image(0, L.laneO, 'r-marks').setOrigin(0, 1).setScale(0.92), -4);
     const cs = L.ppm * 0.5;
-    addTex(this, 'r-check', drawChecker(2, Math.ceil((H - L.trackTop) / cs), cs));
-    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(1, 0), 0);
-    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(0, 0), D);
+    // the lines end at the track's edge, not under the HUD
+    addTex(this, 'r-check', drawChecker(2, Math.ceil(th / cs), cs));
+    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(1, 0).setCrop(0, 0, 2 * cs, th), 0);
+    put(this.add.image(0, L.trackTop, 'r-check').setOrigin(0, 0).setCrop(0, 0, 2 * cs, th), D);
     put(this.prop('p-finish', PROPS.finish, (1.35 * L.carW) / PROPS.finish.crop[2], 'FINISH', '#ffffff', 0.55), D)
       .y = wallBase;
     for (let d = 100; d < D - 40; d += 100) {
@@ -403,6 +404,7 @@ export class RaceScene extends Phaser.Scene {
     this.step = 'amber';
     sfx.red();
     ui.callout('TOO EARLY', 'foul');
+    ui.raceMsg('Press and hold on the yellow lights · let go on GREEN');
   }
 
   stepOpponent(h) {

@@ -559,7 +559,9 @@ export function coach(el, text) {
   if ($('coach-text').textContent !== text) $('coach-text').textContent = text;
   box.hidden = false;
   const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight;
-  const above = el.id !== 'goal-chip' && r.top > bh + 24;
+  // in the upgrades dock a bubble above would cover the car's name and PR, so it goes below when it fits
+  const below = !!el.closest('#dock') && innerHeight - r.bottom > bh + 24;
+  const above = !below && el.id !== 'goal-chip' && r.top > bh + 24;
   const x = Math.min(innerWidth - bw - 8, Math.max(8, r.left + r.width / 2 - bw / 2));
   box.classList.toggle('below', !above);
   box.style.left = `${x}px`;
@@ -666,7 +668,8 @@ export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   raceAchievements.length = 0;
   const env = ENVS.find(v => v.id === event.env), car = carDef(state.car);
   $('race-name').textContent = practice ? 'Driving lesson' : event.name;
-  $('race-sub').textContent = `${env.short} · ${DIST[event.dist].label} · ${car.name} PR ${pr(pSpec)} vs ${oSpec.name}`;
+  // narrow phones drop the place and the car's name so the rest fits on one line
+  $('race-sub').innerHTML = `<span class="sub-long">${env.short} · </span>${DIST[event.dist].label} · <span class="sub-long">${car.name} </span>PR ${pr(pSpec)} vs ${oSpec.name}`;
   $('speed-unit').textContent = state.units === 'kmh' ? 'KM/H' : 'MPH';
   $('race-reward').innerHTML = practice ? '<small>Lesson</small>Practice' : `<small>Win</small>${fmt(event.win)}`;
   $('callout').className = 'callout';
@@ -806,7 +809,7 @@ export function showResult(d, actions) {
     <div class="rows">${d.lines.map(([k, v]) => `<div class="row"><span>${k}</span><span class="plus">+${fmt(v)}</span></div>`).join('')}</div>
     <button class="btn ad result-ad" id="result-ad">${ICONS.play}Watch an ad: 2× prize (+${fmt(prize)})</button>
     ${unlocks.map(u => `<div class="unlock">${u}</div>`).join('')}
-    ${trophies.map(u => `<div class="unlock trophy">${u}</div>`).join('')}
+    ${trophies.length ? `<div class="trophies">${trophies.map(u => `<div class="unlock trophy">${u}</div>`).join('')}</div>` : ''}
     <div class="rows">
       <div class="row"><span>Your time</span><span>${t(d.you)}</span></div>
       <div class="row"><span>${d.opp}</span><span>${t(d.them)}</span></div>
