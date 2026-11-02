@@ -243,41 +243,69 @@ svg { display: block; }
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: auto auto 1fr auto auto;
-  grid-template-areas: "tach gear msg speed btn";
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) auto;
+  grid-template-areas: "dash msg btn";
   align-items: center;
   gap: 14px;
   padding: 10px calc(16px + var(--sr)) calc(10px + var(--sb)) calc(16px + var(--sl));
   background: linear-gradient(to top, rgba(14, 20, 30, 0.97), rgba(14, 20, 30, 0.85));
   border-top: 1px solid var(--line);
+  --dial: 112px;
 }
-.tach { grid-area: tach; width: 116px; height: 116px; }
-.tach svg { width: 100%; height: 100%; }
-.t-face { fill: #0f1620; stroke: #2b3a4f; stroke-width: 2; }
-.t-base, .t-perfect, .t-red { fill: none; stroke-width: 7; }
-.t-base { stroke: #2b3a4f; }
-.t-perfect { stroke: var(--green); }
-.t-red { stroke: var(--red); }
-.t-tick { stroke: #c9d4e0; stroke-width: 1.6; }
-.t-num { fill: #c9d4e0; font-size: 9px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
-.t-unit { fill: var(--muted); font-size: 6.5px; font-weight: 700; text-anchor: middle; letter-spacing: 0.4px; }
-.t-needle { stroke: var(--orange); stroke-width: 3; stroke-linecap: round; }
-.t-hub { fill: #1c2738; stroke: #44597a; stroke-width: 2; }
-.t-hub.on { fill: var(--green-hi); stroke: #b8f5cf; }
 
-.gear-box { grid-area: gear; text-align: center; min-width: 60px; }
-.gear { font-size: 46px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+/* the dash: a round speedometer, and the rev bar running out of its right-hand side */
+.dash { grid-area: dash; display: flex; align-items: center; min-width: 0; }
+.speedo { position: relative; z-index: 1; flex: none; width: var(--dial); height: var(--dial); }
+.speed-dial, .speed-dial svg { width: 100%; height: 100%; display: block; }
+.s-face { fill: #0f1620; stroke: #3a4d68; stroke-width: 2.5; }
+.s-base, .s-fill { fill: none; stroke-width: 7; stroke-linecap: round; }
+.s-base { stroke: #233042; }
+.s-fill { stroke: var(--gold); stroke-dasharray: 100 100; stroke-dashoffset: 100; transition: stroke 0.15s; }
+.speedo.boost .s-fill { stroke: #59c6ff; filter: drop-shadow(0 0 3px rgba(89, 198, 255, 0.9)); }
+.s-tick { stroke: #5f738f; stroke-width: 1.4; }
+.speed-read { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding-top: 4px; }
+.speed { font-size: calc(var(--dial) * 0.32); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.speedo .label { margin-top: 3px; }
 .label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
-.msg { grid-area: msg; text-align: center; font-weight: 700; font-size: 15px; color: var(--muted); padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
-.speedo {
-  grid-area: speed;
-  width: 100px; height: 100px;
-  border-radius: 50%;
-  border: 4px solid #2b3a4f;
-  display: grid; place-content: center; text-align: center;
-  background: radial-gradient(#1a2433, #0f1620);
+
+.rev {
+  flex: 1;
+  min-width: 0;
+  margin-left: -18px;
+  padding: 7px 14px 6px 28px;
+  border-radius: 0 16px 16px 0;
+  background: #0f1620;
+  border: 2.5px solid #3a4d68;
+  border-left: 0;
+  --rpm: 0;
 }
-.speed { font-size: 36px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.rev-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 5px; white-space: nowrap; }
+.gear-tag { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.gear-tag b { font-size: 22px; font-weight: 900; color: var(--text, #f4efe6); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.rev-unit { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.4px; }
+.rev-track { position: relative; height: 18px; border-radius: 9px; background: #1b2636; overflow: hidden; }
+.rev-track > i { position: absolute; top: 0; bottom: 0; }
+.z-good { background: rgba(46, 168, 95, 0.45); }
+.z-perfect { background: var(--green-hi); }
+.z-red { background: rgba(224, 72, 58, 0.55); }
+.rev-fill {
+  left: 0; width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--rpm));
+  background: linear-gradient(90deg, rgba(232, 128, 58, 0.25), rgba(232, 128, 58, 0.75));
+  mix-blend-mode: screen;
+}
+.rev-mark { left: calc(var(--rpm) * 100%); width: 4px; margin-left: -2px; background: #fff; box-shadow: 0 0 6px #fff; border-radius: 2px; }
+.rev.good .rev-fill, .rev.perfect .rev-fill, .rev.go .rev-fill { background: linear-gradient(90deg, rgba(60, 207, 120, 0.25), rgba(60, 207, 120, 0.85)); }
+.rev.perfect .rev-track { box-shadow: 0 0 12px rgba(60, 207, 120, 0.9); }
+.rev.limiter .rev-fill { background: linear-gradient(90deg, rgba(224, 72, 58, 0.35), rgba(224, 72, 58, 0.95)); }
+.rev.limiter .rev-track { animation: rev-shake 0.12s linear infinite; }
+@keyframes rev-shake { 50% { transform: translateX(1.5px); } }
+.rev-ticks { position: relative; height: 13px; margin-top: 3px; }
+.rev-ticks span { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: #8293a8; font-variant-numeric: tabular-nums; }
+.rev-ticks span:first-child { transform: none; }
+
+.msg { grid-area: msg; text-align: center; font-weight: 700; font-size: 15px; color: var(--muted); padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
 
 .shift-btn {
   grid-area: btn;
@@ -309,24 +337,22 @@ svg { display: block; }
 /* stacked HUD for tall screens; short landscape screens keep one row so the track stays visible */
 @media (orientation: portrait), (max-width: 640px) and (min-height: 501px) {
   .race-hud {
-    grid-template-columns: auto 1fr auto;
-    grid-template-areas: "tach gear speed" "msg msg msg" "btn btn btn";
-    gap: 8px 10px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "dash" "msg" "btn";
+    gap: 8px;
+    --dial: 96px;
   }
-  .tach { width: 104px; height: 104px; }
-  .speedo { width: 90px; height: 90px; }
-  .speed { font-size: 32px; }
   .msg { padding: 6px; font-size: 13px; }
   .shift-btn { width: 100%; height: 74px; }
   .race-reward { font-size: 15px; }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  .race-hud { gap: 10px; padding-top: 6px; padding-bottom: calc(6px + var(--sb)); }
-  .tach { width: 84px; height: 84px; }
-  .speedo { width: 76px; height: 76px; }
-  .speed { font-size: 28px; }
-  .gear { font-size: 36px; }
+  .race-hud { gap: 10px; padding-top: 6px; padding-bottom: calc(6px + var(--sb)); --dial: 80px; }
+  .rev { padding-top: 4px; padding-bottom: 3px; }
+  .rev-head { margin-bottom: 3px; }
+  .gear-tag b { font-size: 18px; }
+  .rev-track { height: 14px; }
   .shift-btn { height: 76px; width: 124px; }
   .race-sub { display: none; }
   .msg { padding: 6px; font-size: 12.5px; }
@@ -397,11 +423,6 @@ svg { display: block; }
 .card.locked-env { gap: 12px; }
 .card.locked-env svg { width: 26px; height: 26px; color: var(--muted); flex: none; }
 
-.t-good { fill: none; stroke: #1f7a46; stroke-width: 7; }
-.t-hub.go { fill: var(--green-hi); stroke: #b8ffd4; }
-.t-hub.good { fill: var(--green); stroke: #8ff0b4; }
-.t-hub.perfect { fill: var(--green-hi); stroke: #fff; }
-.t-hub.limiter { fill: var(--red); stroke: #ffb3aa; }
 .shift-btn.over { background: linear-gradient(#f0665a, #c73b2f); border-color: #ffb3aa; }
 /* nitro: blue when ready, dim while a burst burns, flashing white-blue in the chain window */
 .shift-btn.nitro { background: linear-gradient(#3fb4f0, #1f74c2); border-color: #9fdcff; box-shadow: 0 4px 0 #0f3f6e; }
@@ -692,7 +713,7 @@ body.reduced .upg-btn.flash { animation: none; }
 
 /* ------------------------------------------------------------ dock: garage left, panel right */
 
-:root { --dock-w: clamp(300px, 30vw, 460px); --dock-h: 0px; }
+:root { --dock-w: clamp(200px, 30vw, 480px); --dock-h: 0px; }
 .dock {
   position: absolute;
   top: 0;
@@ -736,7 +757,7 @@ body.reduced .upg-btn.flash { animation: none; }
 }
 /* short landscape (phones on their side): a narrower dock, compact tabs */
 @media (orientation: landscape) and (max-height: 520px) {
-  :root { --dock-w: clamp(260px, 36vw, 360px); }
+  :root { --dock-w: clamp(190px, 34vw, 380px); }
   .upg-grid { gap: 6px; }
 }
 
@@ -885,3 +906,38 @@ body.reduced .upg-btn.flash { animation: none; }
 @keyframes test-ad-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 /* on phones the tap hint shares the row with RACE; it steps aside while the ad button is there */
 @media (orientation: portrait) { .tap-hint.beside-ad { opacity: 0; } }
+
+/* ------------------------------------------------------------ the dock scales with the window */
+
+/* The dock is a share of the window (--dock-w), and everything in it is sized in --u: 1px at a 330px-wide
+   dock, from 0.78px on a small window up to 1.2px on a big one. A smaller window gets a smaller
+   panel with smaller cards, instead of the same panel squeezing the garage. */
+.dock { container-type: inline-size; }
+.dock-bar, .dock .sheet-body { --u: clamp(0.78px, calc(100cqw / 330), 1.2px); }
+/* along the bottom of a phone held upright the dock is the full width: keep the cards compact */
+@media (orientation: portrait) { .dock-bar, .dock .sheet-body { --u: clamp(0.85px, calc(100cqw / 390), 1.15px); } }
+.dock-bar { padding: calc(14 * var(--u)) calc(14 * var(--u)) calc(6 * var(--u)); min-height: calc(58 * var(--u)); }
+.dock-bar h2 { font-size: calc(20 * var(--u)); }
+.dock .sheet-body { padding: calc(4 * var(--u)) calc(12 * var(--u)) calc(14 * var(--u)); gap: calc(10 * var(--u)); }
+.dock .dock-head { font-size: calc(12 * var(--u)); }
+.dock .hint { font-size: calc(13 * var(--u)); }
+.dock .upg-grid { gap: calc(8 * var(--u)); }
+.dock .upg-btn {
+  padding: calc(10 * var(--u)) calc(11 * var(--u));
+  gap: calc(4 * var(--u)) calc(10 * var(--u));
+  border-radius: calc(14 * var(--u));
+  grid-template-columns: calc(40 * var(--u)) minmax(0, 1fr) auto;
+}
+.dock .upg-btn.preview { grid-template-columns: calc(40 * var(--u)) minmax(0, 1fr); }
+.dock .ub-icon { width: calc(32 * var(--u)); height: calc(32 * var(--u)); border-radius: calc(10 * var(--u)); }
+.dock .ub-icon svg { width: calc(19 * var(--u)); height: calc(19 * var(--u)); }
+.dock .ub-icon.art, .dock .upg-btn:not(.poor):not(.locked):not(.maxed):not(.rep):not(.preview) .ub-icon.art { width: calc(40 * var(--u)); height: calc(40 * var(--u)); }
+.dock .ub-name { font-size: calc(13.5 * var(--u)); }
+.dock .ub-name small { font-size: calc(11.5 * var(--u)); margin-left: calc(4 * var(--u)); }
+.dock .ub-desc { font-size: calc(12.5 * var(--u)); }
+.dock .ub-desc em { font-size: calc(11.5 * var(--u)); }
+.dock .ub-gain { font-size: calc(11 * var(--u)); }
+.dock .ub-cost { font-size: calc(13 * var(--u)); padding: calc(3 * var(--u)) calc(8 * var(--u)); border-radius: calc(8 * var(--u)); gap: calc(4 * var(--u)); }
+.dock .ub-cost svg { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+.dock .upg-btn.locked .ub-cost { font-size: calc(10.5 * var(--u)); padding: 0; }
+.dock .upg-btn .pips i { height: calc(5 * var(--u)); }

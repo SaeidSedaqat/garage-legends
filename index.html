@@ -74,10 +74,19 @@
         <div class="callout" id="callout"></div>
 
         <footer class="race-hud" id="race-hud">
-          <div class="tach" id="tach"></div>
-          <div class="gear-box"><div class="gear" id="gear">1</div><div class="label">Gear</div></div>
+          <!-- round speedometer with the rev bar running out of its side -->
+          <div class="dash">
+            <div class="speedo" id="speedo">
+              <div class="speed-dial" id="speed-dial"></div>
+              <div class="speed-read"><div class="speed" id="speed">0</div><div class="label" id="speed-unit">KM/H</div></div>
+            </div>
+            <div class="rev" id="tach">
+              <div class="rev-head"><span class="gear-tag">Gear <b id="gear">1</b></span><span class="rev-unit">RPM ×1000</span></div>
+              <div class="rev-track" id="rev-track"></div>
+              <div class="rev-ticks" id="rev-ticks"></div>
+            </div>
+          </div>
           <div class="msg" id="race-msg"></div>
-          <div class="speedo"><div class="speed" id="speed">0</div><div class="label" id="speed-unit">KM/H</div></div>
           <button class="shift-btn" id="btn-shift"><span id="shift-label">HOLD</span><small id="shift-hint">release on green</small></button>
         </footer>
       </div>

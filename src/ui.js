@@ -7,7 +7,7 @@ import {
 } from './state.js';
 import {
   CARS, ENVS, OPPONENTS, DIST, PARTS, PART_LEVELS, PART_STEP, NITRO_STEP, AUTO_UNLOCK, MILESTONES, STAR_BONUS,
-  ACHIEVEMENTS,
+  ACHIEVEMENTS, SIM,
 } from './data.js';
 import { pr, zones } from './physics.js';
 import { crewRate, partName, tapBase } from './tuning.js';
@@ -259,14 +259,14 @@ function renderRaceButton() {
   const e = nextRace(), left = Math.ceil(raceCooldown()), mine = carPR(state.car);
   const icon = uiIconURL('race') ? `<img class="art-icon" src="${uiIconURL('race')}" alt="">` : ICONS.flag;
   const fit = mine >= e.rec ? '' : mine >= e.rec * 0.9 ? 'close' : 'short';
-  const key = `${e.n}|${left}|${fit}|${icon.length}`;
+  const key = `${e.n}|${e.dist}|${left}|${fit}|${icon.length}`;
   if (key === raceKey) return;
   raceKey = key;
   const b = $('btn-race');
   b.classList.toggle('cooling', left > 0);
   b.innerHTML = left > 0
     ? `${icon}<span class="rb-text"><b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</b><small>${e.name} next</small></span>`
-    : `${icon}<span class="rb-text"><b>Race</b><small class="${fit === 'short' ? 'short' : ''}">${e.name} · PR ${e.rec}${fit === 'short' ? ' ⚠' : ''}</small></span>`;
+    : `${icon}<span class="rb-text"><b>Race</b><small class="${fit === 'short' ? 'short' : ''}">${e.name} · ${DIST[e.dist].short} · PR ${e.rec}${fit === 'short' ? ' ⚠' : ''}</small></span>`;
   $('btn-race-ad').hidden = !(left > 0);
   $('tap-hint').classList.toggle('beside-ad', left > 0);
 }
@@ -632,34 +632,28 @@ function coachUpdate() {
 export const raceTopInset = () => $('progress').getBoundingClientRect().bottom;
 export const raceHudHeight = () => innerHeight - $('race-hud').getBoundingClientRect().top;
 
-// Tachometer drawn as SVG: RPM fraction 0–1 maps to −135°…+135°.
-function buildTach(spec, redline) {
-  const ang = f => -135 + 270 * f;
-  const pol = (a, r) => {
-    const t = ((a - 90) * Math.PI) / 180;
-    return [50 + r * Math.cos(t), 50 + r * Math.sin(t)];
-  };
-  const arc = (f0, f1, r, cls) => {
-    const a0 = ang(f0), a1 = ang(f1), [x0, y0] = pol(a0, r), [x1, y1] = pol(a1, r);
-    return `<path d="M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}" class="${cls}"/>`;
-  };
-  const z = zones(spec);
-  let s = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" class="t-face"/>';
-  s += arc(0, 1, 41, 't-base');
-  s += arc(z.good[0], z.good[1], 41, 't-good');
-  s += arc(z.perfect[0], z.perfect[1], 41, 't-perfect');
-  s += arc(Math.min(1, z.good[1] + 0.04), 1, 41, 't-red');
-  const max = Math.floor(redline / 1000);
-  for (let i = 0; i <= max; i++) {
-    const a = ang((i * 1000) / redline);
-    const [x0, y0] = pol(a, 36), [x1, y1] = pol(a, 31), [tx, ty] = pol(a, 24);
-    s += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" class="t-tick"/>`;
-    s += `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" class="t-num">${i}</text>`;
+// Speedometer dial: a 270° arc that fills with speed (0 to the car's top speed with nitro), with
+// a tick every tenth.
+const DIAL = 'M21.7 78.3A40 40 0 1 1 78.3 78.3';
+function buildSpeedo() {
+  let s = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" class="s-face"/><path class="s-base" pathLength="100" d="${DIAL}"/>`;
+  for (let i = 0; i <= 10; i++) {
+    const t = ((-135 + 27 * i - 90) * Math.PI) / 180, c = Math.cos(t), n = Math.sin(t), r0 = i % 5 ? 32 : 29;
+    s += `<line x1="${(50 + 34.5 * c).toFixed(2)}" y1="${(50 + 34.5 * n).toFixed(2)}" x2="${(50 + r0 * c).toFixed(2)}" y2="${(50 + r0 * n).toFixed(2)}" class="s-tick"/>`;
   }
-  s += '<text x="50" y="74" class="t-unit">RPM ×1000</text>';
-  s += '<g class="needle"><line x1="50" y1="50" x2="50" y2="13" class="t-needle"/></g>';
-  s += '<circle cx="50" cy="50" r="6" class="t-hub"/></svg>';
-  return s;
+  return `${s}<path class="s-fill" id="speed-arc" pathLength="100" d="${DIAL}"/></svg>`;
+}
+
+// Rev bar: RPM fraction 0–1 left to right, with the shift zones and the red line marked on it
+// and the engine's thousands underneath.
+function buildRev(spec, redline) {
+  const z = zones(spec), pct = f => `${(100 * f).toFixed(2)}%`, band = (f0, f1, cls) => `<i class="${cls}" style="left:${pct(f0)};width:${pct(f1 - f0)}"></i>`;
+  const red = Math.min(1, z.good[1] + 0.04);
+  $('rev-track').innerHTML = band(z.good[0], z.good[1], 'z-good') + band(z.perfect[0], z.perfect[1], 'z-perfect') + band(red, 1, 'z-red')
+    + '<i class="rev-fill"></i><i class="rev-mark"></i>';
+  let ticks = '';
+  for (let i = 0; i <= Math.floor(redline / 1000); i++) ticks += `<span style="left:${pct((i * 1000) / redline)}">${i}</span>`;
+  $('rev-ticks').innerHTML = ticks;
 }
 
 const raceAchievements = [];
@@ -673,9 +667,13 @@ export function showRace(event, pSpec, oSpec, handlers, practice = false) {
   $('speed-unit').textContent = state.units === 'kmh' ? 'KM/H' : 'MPH';
   $('race-reward').innerHTML = practice ? '<small>Lesson</small>Practice' : `<small>Win</small>${fmt(event.win)}`;
   $('callout').className = 'callout';
-  $('tach').innerHTML = buildTach(pSpec, car.redlineRpm);
-  hud = { needle: $('tach').querySelector('.needle'), hub: $('tach').querySelector('.t-hub'), last: {} };
-  $('tach').classList.remove('launched');
+  $('speed-dial').innerHTML = buildSpeedo();
+  buildRev(pSpec, car.redlineRpm);
+  // the dial's full sweep is the car's top speed with a nitro burst on top
+  hud = { arc: $('speed-arc'), rev: $('tach'), maxMph: (90 + 1.6 * pSpec.topSpeed) * SIM.nitro.speed * 1.05, last: {} };
+  hud.rev.classList.remove('good', 'perfect', 'go', 'limiter');
+  hud.rev.style.setProperty('--rpm', 0);
+  hud.arc.style.strokeDashoffset = 100;
   $('gear').textContent = '1';
   $('speed').textContent = '0';
   $('race-gap').textContent = '';
@@ -695,18 +693,20 @@ export function showRace(event, pSpec, oSpec, handlers, practice = false) {
 
 export function updateRace({ rpm, gear, mph, you, opp, zone, launched, go, gap, speed, nitro }) {
   if (!hud) return;
-  hud.needle.setAttribute('transform', `rotate(${(-135 + 270 * Math.min(1, rpm)).toFixed(1)} 50 50)`);
-  const l = hud.last;
+  const l = hud.last, r = Math.min(1, Math.max(0, rpm)).toFixed(3);
+  if (l.rpm !== r) hud.rev.style.setProperty('--rpm', l.rpm = r);
   if (l.gear !== gear) $('gear').textContent = l.gear = gear;
   const s = Math.round(state.units === 'kmh' ? mph * 1.609 : mph);
-  if (l.s !== s) $('speed').textContent = l.s = s;
+  if (l.s !== s) {
+    $('speed').textContent = l.s = s;
+    hud.arc.style.strokeDashoffset = (100 - 100 * Math.min(1, mph / hud.maxMph)).toFixed(1);
+  }
   $('progress').style.setProperty('--you', you.toFixed(4));
   $('progress').style.setProperty('--opp', opp.toFixed(4));
-  if (l.launched !== launched) { l.launched = launched; $('tach').classList.toggle('launched', launched); }
   const key = launched ? zone : go ? 'go' : null;
   if (l.zone !== key) {
     l.zone = key;
-    hud.hub.setAttribute('class', `t-hub ${key || ''}`);
+    for (const k of ['good', 'perfect', 'go', 'limiter']) hud.rev.classList.toggle(k, key === k);
     const b = $('btn-shift');
     b.classList.toggle('ready', key === 'good' || key === 'perfect' || key === 'go');
     b.classList.toggle('over', key === 'limiter');
@@ -715,6 +715,7 @@ export function updateRace({ rpm, gear, mph, you, opp, zone, launched, go, gap, 
     l.nitro = nitro;
     const b = $('btn-shift');
     for (const k of ['ready', 'chain', 'burn']) b.classList.toggle(`n-${k}`, nitro === k);
+    $('speedo').classList.toggle('boost', nitro === 'burn' || nitro === 'chain');
   }
   if (gap != null) {
     const t = -gap / speed, txt = `${t >= 0 ? '+' : '−'}${Math.abs(t).toFixed(2)} s`;
@@ -791,7 +792,7 @@ export function showResult(d, actions) {
       : d.reaction > 0.6 ? 'Launch the moment the light turns green.'
       : d.nitros && !d.nitros.length ? 'Tap NITRO in top gear, and chain it when the button flashes.'
       : d.launch === 'slow' || d.launch === 'late' ? 'Let go the instant the light turns green: every tenth of a second counts.'
-        : d.shifts.filter(s => s === 'perfect' || s === 'good').length < d.shifts.length / 2 ? 'Shift while the needle is in the green zone.'
+        : d.shifts.filter(s => s === 'perfect' || s === 'good').length < d.shifts.length / 2 ? 'Shift while the rev bar is in the green zone.'
           : carPR(state.car) < d.event.rec ? `This race wants PR ${d.event.rec}: upgrade your car or buy a faster one.` : 'So close. Try again!';
   }
   const unlocks = [];
@@ -849,7 +850,7 @@ export function showPracticeDone(d, actions) {
     <div class="result-sub">Practice races pay nothing. Run it again any time from the Race menu.</div>
     <div class="skills">
       ${skill('1 · Launch', LAUNCH_NAME[d.launch] || '—', d.launch === 'perfect' || d.launch === 'good', 'Press and hold on the yellow lights, then let go the instant the light turns GREEN. Under 0.2 s is a PERFECT launch.')}
-      ${skill('2 · Shift', shiftText, n('early') + n('late') === 0, 'Tap when the needle reaches the GREEN zone. Its bright middle is a PERFECT shift: a burst of speed.')}
+      ${skill('2 · Shift', shiftText, n('early') + n('late') === 0, 'Tap when the rev bar reaches the GREEN zone. Its bright middle is a PERFECT shift: a burst of speed.')}
       ${skill('3 · Nitro', nitroText(d.nitros) || 'not used', d.nitros.includes('chain'), 'In top gear, tap for a burst. Tap again when the button flashes white to CHAIN a bigger one.')}
     </div>
     <div class="actions">

@@ -14,22 +14,22 @@
 <body>
   <h1>Balance check</h1>
   <h2>Race ladder</h2>
-  <p>Win rate of a player at each race's recommended PR with Good launches, shifts and nitro. Target 55–85% (GDD §17.2).</p>
+  <p>Win rate at each race's recommended PR. Rivals are tuned so a sharp driver (perfect launch, every other shift perfect, nitro fired) wins about 65%; also shown: a Good driver (good launch and shifts) and a flawless one.</p>
   <div id="out">Running…</div>
-  <h2>Pacing bot (2 taps/s)</h2>
+  <h2>Pacing bot (2 taps/s, sharp driver)</h2>
   <pre id="pace">Running…</pre>
   <h2>Rival ratios</h2>
-  <p>Rival PR ÷ recommended PR for a ~70% win, per rival and distance. Copy into <code>LADDER.ratio</code>.</p>
+  <p>Rival PR ÷ recommended PR for a ~65% win by the sharp driver, per rival and distance. Copy into <code>LADDER.ratio</code>.</p>
   <pre id="ratio">Running…</pre>
   <script type="module">
     import { ladderCheck, ladderRatios, pacing } from './balance.js';
     const rows = ladderCheck(60);
     document.getElementById('out').innerHTML = `<table>
-      <tr><th>Race</th><th>Rec PR</th><th>Rival</th><th>Distance</th><th>Venue</th><th>Prize</th><th>Win rate</th></tr>
+      <tr><th>Race</th><th>Rec PR</th><th>Rival</th><th>Distance</th><th>Venue</th><th>Prize</th><th>Sharp</th><th>Good</th><th>Flawless</th></tr>
       ${rows.map(r => `<tr><td>${r.n}</td><td>${r.rec}</td><td>${r.opp}</td><td>${r.dist}</td><td>${r.env}</td><td>${r.win}</td>
-        <td class="${r.rate < 0.55 || r.rate > 0.85 ? 'off' : ''}">${Math.round(r.rate * 100)}%</td></tr>`).join('')}
+        <td class="${r.rate < 0.55 || r.rate > 0.75 ? 'off' : ''}">${Math.round(r.rate * 100)}%</td><td>${Math.round(r.good * 100)}%</td><td>${Math.round(r.ace * 100)}%</td></tr>`).join('')}
     </table>`;
-    const p = pacing();
+    const p = pacing({ until: 62 });
     document.getElementById('pace').textContent = Object.entries(p.log).map(([k, v]) => `${k}: ${(v / 60).toFixed(1)} min`).join('\n')
       + `\n\nlongest waits between wins: ${p.gaps.map(g => `race ${g.race} ${g.wait} min`).join(', ')}`;
     document.getElementById('ratio').textContent = Object.entries(ladderRatios())

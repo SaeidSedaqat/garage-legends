@@ -15,7 +15,7 @@ const level = (n, max) => Math.min(max, Math.max(0, Math.floor(+n || 0)));
 
 export const carDef = id => CARS.find(c => c.id === id);
 const RACE_ID = /^race_(\d+)$/;
-export const eventDef = id => (RACE_ID.test(id) ? ladderEvent(+id.match(RACE_ID)[1]) : undefined);
+export const eventDef = id => (RACE_ID.test(id) ? ladderEvent(+id.match(RACE_ID)[1], tunedSpec()) : undefined);
 
 const prefersReducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -304,7 +304,7 @@ setInterval(() => earn(autoRate() / 4, 'fromAuto'), 250);
 
 // ---------------------------------------------------------------- the race ladder
 
-export const nextRace = () => ladderEvent(state.race.n);
+export const nextRace = () => ladderEvent(state.race.n, tunedSpec());
 
 // Seconds until RACE is ready again (0 when it is).
 export const raceCooldown = () => Math.max(0, (state.race.readyAt - Date.now()) / 1000);

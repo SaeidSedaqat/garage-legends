@@ -1,14 +1,18 @@
 // Balance check (GDD §17.2). Open tools/balance.html through the local server to run it.
 // The race ladder: for every rival and distance it finds the rival PR at which a player at the
-// recommended PR with Good launches, shifts and nitro wins ~70% (LADDER.ratio), checks the win
+// recommended PR driving like REF (below) wins ~65% (LADDER.ratio), checks the win
 // rate up the ladder, and runs a pacing bot through it.
 import { CARS, OPPONENTS, DIST, LADDER, PART_LEVELS, STAR_BONUS, MILESTONES, LOSS_PCT } from '../src/data.js';
 import { pr, rng, hash, runSolo, aiInputs } from '../src/physics.js';
 import { blankTune, cooldownAfter, crewCost, crewRate, ladderEvent, partCost, partLock, tapBase, tapCost, tuned } from '../src/tuning.js';
 
 const SAMPLES = 400;
-const TARGET_WIN = 0.7;
+const TARGET_WIN = 0.65;
+// Rivals are tuned against REF, a sharp player: perfect launches, every other shift perfect, nitro
+// fired (not chained). GOOD and ACE show how a weaker and a flawless driver fare.
 const GOOD = { reaction: 0.35, launchQ: 'good', shiftQ: () => 'good', nitroQ: 'boost' };
+const REF = { reaction: 0.25, launchQ: 'perfect', shiftQ: i => (i % 2 ? 'perfect' : 'good'), nitroQ: 'boost' };
+const ACE = { reaction: 0.18, launchQ: 'perfect', shiftQ: () => 'perfect', nitroQ: 'chain' };
 
 const car = id => CARS.find(c => c.id === id);
 
@@ -26,7 +30,7 @@ function winRate(oppId, dist, playerTime, oppPR) {
 }
 
 // The player drives the rival's own model at the rival's own PR (the top rivals: an Apex Zero at
-// PR 1100); the rival PR for a ~70% win, as a ratio of that, goes into LADDER.ratio.
+// PR 1100); the rival PR at which REF wins ~65%, as a ratio of that, goes into LADDER.ratio.
 export function ladderRatios() {
   const ratio = {};
   for (const id of [...LADDER.roster, ...LADDER.endRivals]) {
@@ -34,11 +38,11 @@ export function ladderRatios() {
     const mine = scaled(car(end ? 'apex' : OPPONENTS[id].carId), rec);
     ratio[id] = {};
     for (const dist of Object.keys(DIST)) {
-      const good = runSolo(mine, DIST[dist].m, GOOD);
+      const ref = runSolo(mine, DIST[dist].m, REF);
       let lo = rec * 0.5, hi = rec * 1.5;
       for (let i = 0; i < 16; i++) {
         const mid = (lo + hi) / 2;
-        if (winRate(id, dist, good, mid) > TARGET_WIN) lo = mid; else hi = mid;
+        if (winRate(id, dist, ref, mid) > TARGET_WIN) lo = mid; else hi = mid;
       }
       ratio[id][dist] = +((lo + hi) / 2 / rec).toFixed(3);
     }
@@ -46,12 +50,13 @@ export function ladderRatios() {
   return ratio;
 }
 
-// Win rate at the recommended PR (Good driving, the rival's model) for races 1..n.
+// Win rates at the recommended PR in the rival's model, for races 1..n: `rate` for REF (the
+// target), `good` and `ace` for a weaker and a flawless driver.
 export function ladderCheck(n = 60) {
   return Array.from({ length: n }, (_, i) => {
     const e = ladderEvent(i + 1), o = OPPONENTS[e.opp], end = LADDER.endRivals.includes(e.opp);
-    const good = runSolo(scaled(car(end ? 'apex' : o.carId), e.rec), DIST[e.dist].m, GOOD);
-    return { n: e.n, rec: e.rec, opp: e.opp, dist: e.dist, env: e.env, win: e.win, rate: winRate(e.opp, e.dist, good, e.oppPR) };
+    const mine = scaled(car(end ? 'apex' : o.carId), e.rec), at = d => winRate(e.opp, e.dist, runSolo(mine, DIST[e.dist].m, d), e.oppPR);
+    return { n: e.n, rec: e.rec, opp: e.opp, dist: e.dist, env: e.env, win: e.win, rate: at(REF), good: at(GOOD), ace: at(ACE) };
   });
 }
 
@@ -65,13 +70,15 @@ export const carGains = () => CARS.map(c => {
 });
 
 // A "mixed" player: taps at `tapsPerSec` in the garage, races the next ladder race whenever the
-// cooldown is over and its PR is within 15% of the recommendation, and spends on whatever adds
+// cooldown is over and its PR is within 10% of the recommendation, and spends on whatever adds
 // the most PR per dollar, or saves for the next car. Each race takes `raceS` seconds with
 // menus, and then RACE cools down (cooldownAfter). With `ads`, it skips every cooldown.
+// `edge` is how much PR the driving is worth over REF (0.1 for a flawless driver).
 // `log` has when each milestone race was won and each car bought; `gaps` the longest waits.
-export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads = false } = {}) {
+export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads = false, edge = 0 } = {}) {
   const rand = rng(seed);
-  const winChance = (mine, rec) => Math.min(0.97, Math.max(0.05, 0.7 + (mine / rec - 1) * 3));
+  // a REF-level driver: 65% at the recommended PR, a near-certain win 10% above it
+  const winChance = (mine, rec) => Math.min(0.97, Math.max(0.03, 0.65 + ((mine * (1 + edge)) / rec - 1) * 3.5));
   const def = id => CARS.find(x => x.id === id);
   const tune = { kaze: blankTune(def('kaze')) };
   let t = 0, cash = 0, car = 'kaze', cp = 0, auto = 0, best = 0, ready = 0, lastWin = 0, races = 0;
@@ -84,7 +91,7 @@ export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads =
   const pass = s => { cash += crew() * clickV() * s; t += s; };
 
   while (t < 10 * 3600 && best < until) {
-    const e = ladderEvent(best + 1), mine = pr(spec(car));
+    const e = ladderEvent(best + 1, spec(car)), mine = pr(spec(car));
     // shop first: with no cooldown early on, racing first would never leave time to upgrade
     const nextCar = CARS.find(c => !tune[c.id] && !(c.requires > best));
     if (nextCar && cash >= nextCar.price) { buy(`car ${nextCar.tier}`, nextCar.price); tune[nextCar.id] = blankTune(nextCar); car = nextCar.id; log[`car ${nextCar.tier}`] = t; continue; }
@@ -99,7 +106,7 @@ export function pacing({ tapsPerSec = 2, raceS = 30, seed = 1, until = 41, ads =
     if (affordable && (!nextCar || affordable.c < nextCar.price * 0.25 || ups[0].c > nextCar.price)) { buy(`${car} ${affordable.k}`, affordable.c); tune[car][affordable.k]++; continue; }
     // nothing worth buying: race when RACE is ready, even a little short of the recommendation
     // (a loss pays LOSS_PCT), unless far off
-    if (t >= ready && mine >= e.rec * 0.85) {
+    if (t >= ready && mine * (1 + edge) >= e.rec * 0.9) {
       pass(raceS);
       races++;
       if (rand() < winChance(mine, e.rec)) {

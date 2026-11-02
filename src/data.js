@@ -64,55 +64,55 @@ export const CARS = [
   },
   {
     id: 'ronin', tier: 2, name: 'Ronin Compact', tagline: 'A classic with real character.', niche: 'Very easy to drive',
-    price: 500, stats: { launch: 15, accel: 16, topSpeed: 14, shiftWindow: 0.8, gears: 4 }, upgradeBase: 24, redlineRpm: 8200,
+    price: 1200, stats: { launch: 15, accel: 16, topSpeed: 14, shiftWindow: 0.8, gears: 4 }, upgradeBase: 24, redlineRpm: 8200,
     art: 'ronin',
     parts: ['engine', 'tires', 'ecu', 'gearbox'],
   },
   {
     id: 'hikari', tier: 3, name: 'Hikari Coupe', tagline: 'Balance, style and control.', niche: 'Balanced tuner',
-    price: 2500, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 90, redlineRpm: 7500,
+    price: 6000, stats: { launch: 19, accel: 23, topSpeed: 24, shiftWindow: 0.72, gears: 5 }, upgradeBase: 90, redlineRpm: 7500,
     art: 'hikari',
     parts: ['engine', 'turbo', 'tires', 'gearbox'],
   },
   {
     id: 'bulldog', tier: 4, name: "Bulldog '70", tagline: 'Raw power and timeless appeal.', niche: 'Huge mid-range punch, wheelspin-prone launch',
-    price: 8000, stats: { launch: 24, accel: 32, topSpeed: 30, shiftWindow: 0.62, gears: 4 }, upgradeBase: 200, redlineRpm: 6200,
+    price: 20000, stats: { launch: 24, accel: 32, topSpeed: 30, shiftWindow: 0.62, gears: 4 }, upgradeBase: 200, redlineRpm: 6200,
     launchQuirk: 'wheelspin', art: 'bulldog',
     parts: ['bigblock', 'supercharger', 'slicks', 'gearbox'],
   },
   {
     id: 'kodiak', tier: 5, name: 'Kodiak Rally', tagline: 'Built for grip, not just straight lines.', niche: 'Best launch for its tier, rules the quarter mile',
-    price: 18000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 400, redlineRpm: 7800,
+    price: 45000, stats: { launch: 44, accel: 38, topSpeed: 34, shiftWindow: 0.78, gears: 5 }, upgradeBase: 400, redlineRpm: 7800,
     art: 'kodiak',
     parts: ['engine', 'turbo', 'awd', 'gearbox'],
   },
   {
     id: 'valken', tier: 6, name: 'Valken GT', tagline: 'Power, precision, all around.', niche: 'All-rounder, strong at the half mile',
-    price: 40000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 1000, redlineRpm: 7600,
+    price: 100000, stats: { launch: 48, accel: 52, topSpeed: 56, shiftWindow: 0.75, gears: 6 }, upgradeBase: 1000, redlineRpm: 7600,
     art: 'valken',
     parts: ['engine', 'aero', 'tires', 'nitrous'],
   },
   {
     id: 'sora', tier: 7, name: 'Sora Roadster', tagline: 'Lightweight fun, maximum feel.', niche: 'Widest shift window, the easiest perfect runs',
-    price: 120000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 3000, redlineRpm: 8000,
+    price: 300000, stats: { launch: 62, accel: 64, topSpeed: 54, shiftWindow: 0.88, gears: 6 }, upgradeBase: 3000, redlineRpm: 8000,
     art: 'sora',
     parts: ['engine', 'weight', 'tires', 'gearbox'],
   },
   {
     id: 'furia', tier: 8, name: 'Furia V10', tagline: "Speed isn't a dream anymore.", niche: 'Top-speed monster, demanding shifts',
-    price: 220000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 7500, redlineRpm: 8500,
+    price: 550000, stats: { launch: 70, accel: 76, topSpeed: 80, shiftWindow: 0.68, gears: 7 }, upgradeBase: 7500, redlineRpm: 8500,
     art: 'furia',
     parts: ['engine', 'aero', 'slicks', 'seqbox'], partNames: { engine: 'V10 Tune' },
   },
   {
     id: 'volta', tier: 9, name: 'Volta X', tagline: "The edge of what's possible.", niche: 'Mile specialist',
-    price: 1000000, stats: { launch: 86, accel: 90, topSpeed: 94, shiftWindow: 0.7, gears: 7 }, upgradeBase: 11500, redlineRpm: 9000,
+    price: 2500000, stats: { launch: 86, accel: 90, topSpeed: 94, shiftWindow: 0.7, gears: 7 }, upgradeBase: 11500, redlineRpm: 9000,
     art: 'volta',
     parts: ['motor', 'battery', 'tires', 'gearbox'], partNames: { gearbox: 'Drive Unit' },
   },
   {
     id: 'apex', tier: 10, name: 'Apex Zero', tagline: 'A machine for the few.', niche: 'The ultimate',
-    price: 2500000, requires: 62, stats: { launch: 96, accel: 100, topSpeed: 100, shiftWindow: 0.76, gears: 7 }, upgradeBase: 25000, redlineRpm: 9500,
+    price: 6000000, requires: 62, stats: { launch: 96, accel: 100, topSpeed: 100, shiftWindow: 0.76, gears: 7 }, upgradeBase: 25000, redlineRpm: 9500,
     art: 'apex',
     parts: ['engine', 'hybrid', 'aero', 'seqbox'],
   },
@@ -121,9 +121,9 @@ export const CARS = [
 // ---------------------------------------------------------------- venues and the race ladder (GDD §5, §7.2)
 
 export const DIST = {
-  quarter: { m: 402, label: '1/4 MILE' },
-  half: { m: 805, label: '1/2 MILE' },
-  mile: { m: 1609, label: '1 MILE' },
+  quarter: { m: 402, label: '1/4 MILE', short: '¼ mi' },
+  half: { m: 805, label: '1/2 MILE', short: '½ mi' },
+  mile: { m: 1609, label: '1 MILE', short: '1 mi' },
 };
 
 // Where a race is held, by how far up the ladder it is. `sky` is a frame of the sky sheet; the
@@ -178,8 +178,8 @@ export const OPPONENTS = {
 //
 // Each driver in `roster` races from their `debut` until the next one's; from `endFrom` the
 // `endRivals` take turns.
-// `ratio` is rival PR ÷ recommended PR for a ~70% win with Good launches, shifts and nitro, per
-// rival and distance, from tools/balance.js (`ladderRatios()`).
+// `ratio` is rival PR ÷ recommended PR for a ~65% win by a sharp driver (perfect launch, every
+// other shift perfect, nitro fired), per rival and distance, from tools/balance.js (`ladderRatios()`).
 // A win pays `reward` × (curve rec ÷ `rec`)^`rewardPow`; a loss pays LOSS_PCT of that. Every win is
 // also a Reputation star.
 export const LADDER = {
@@ -205,27 +205,29 @@ export const LADDER = {
   endRivals: ['storm', 'ghost', 'blaze', 'frost', 'crown'],
   // each venue opens at race `from`; from then on the races take turns across the open venues
   envs: [{ id: 'countryside', from: 1 }, { id: 'coastal', from: 7 }, { id: 'city', from: 16 }],
+  // a longer race is picked only for a car that reaches 95% of its top speed past this share of it
+  distFit: { half: 0.72, mile: 0.55 },
   ratio: {
-    rusty: { quarter: 1.043, half: 1.017, mile: 0.986 },
-    dusty: { quarter: 0.901, half: 0.948, mile: 0.957 },
-    mira: { quarter: 0.91, half: 0.943, mile: 0.959 },
-    hank: { quarter: 0.93, half: 0.95, mile: 0.96 },
-    fox: { quarter: 0.928, half: 0.955, mile: 0.959 },
-    sol: { quarter: 0.922, half: 0.95, mile: 0.966 },
-    marina: { quarter: 0.939, half: 0.963, mile: 0.966 },
-    rocco: { quarter: 0.866, half: 0.896, mile: 0.94 },
-    jade: { quarter: 0.86, half: 0.88, mile: 0.921 },
-    reef: { quarter: 0.841, half: 0.881, mile: 0.924 },
-    neon: { quarter: 0.852, half: 0.892, mile: 0.935 },
-    vex: { quarter: 0.863, half: 0.908, mile: 0.937 },
-    duke: { quarter: 0.856, half: 0.894, mile: 0.934 },
-    aria: { quarter: 0.749, half: 0.85, mile: 0.91 },
-    legend: { quarter: 0.771, half: 0.856, mile: 0.909 },
-    storm: { quarter: 0.745, half: 0.85, mile: 0.902 },
-    ghost: { quarter: 0.743, half: 0.849, mile: 0.887 },
-    blaze: { quarter: 0.741, half: 0.839, mile: 0.879 },
-    frost: { quarter: 0.702, half: 0.859, mile: 0.953 },
-    crown: { quarter: 0.745, half: 0.854, mile: 0.901 },
+    rusty: { quarter: 1.239, half: 1.136, mile: 1.065 },
+    dusty: { quarter: 1.082, half: 1.055, mile: 1.024 },
+    mira: { quarter: 1.076, half: 1.048, mile: 1.031 },
+    hank: { quarter: 1.093, half: 1.048, mile: 1.022 },
+    fox: { quarter: 1.137, half: 1.087, mile: 1.064 },
+    sol: { quarter: 1.117, half: 1.068, mile: 1.064 },
+    marina: { quarter: 1.081, half: 1.048, mile: 1.018 },
+    rocco: { quarter: 0.996, half: 1, mile: 0.987 },
+    jade: { quarter: 1.024, half: 1.002, mile: 1.005 },
+    reef: { quarter: 1.003, half: 0.988, mile: 1.003 },
+    neon: { quarter: 1.009, half: 0.994, mile: 0.997 },
+    vex: { quarter: 1.009, half: 0.998, mile: 0.999 },
+    duke: { quarter: 1.034, half: 1.01, mile: 1.008 },
+    aria: { quarter: 0.919, half: 0.958, mile: 0.974 },
+    legend: { quarter: 0.918, half: 0.96, mile: 0.973 },
+    storm: { quarter: 0.917, half: 0.954, mile: 0.973 },
+    ghost: { quarter: 0.92, half: 0.954, mile: 0.958 },
+    blaze: { quarter: 0.919, half: 0.943, mile: 0.949 },
+    frost: { quarter: 0.866, half: 0.959, mile: 1.018 },
+    crown: { quarter: 0.922, half: 0.96, mile: 0.971 },
   },
 };
 
@@ -260,7 +262,7 @@ export const PARTS = {
 export const PART_LEVELS = 4;
 export const PART_STEP = 0.075;
 export const PART_GROWTH = 1.8;
-export const PART_COST = 4; // × each car's upgradeBase
+export const PART_COST = 6; // × each car's upgradeBase
 export const NITRO_STEP = 0.125; // nitro burst strength per level at fx 1 (+50% at full tune)
 
 // Garage upgrades have no top level: small, frequent steps that get steadily dearer.
@@ -342,6 +344,7 @@ export const SIM = {
   // scored on how fast the player lets go after green; letting go before green is a jump start).
   revRate: 0.35,
   revFall: 2.2,   // ... and while released
+  drag: 1.6, // how sharply acceleration fades near top speed (lower: the car keeps gaining speed for longer)
   lastShiftAt: 0.5, // gearing is set per distance so the last shift lands about this far in
   // Top-gear nitro: a few strong bursts. Charges fill `cover` of the time left to the
   // line, + 1 for a perfect launch, + 1 per 2 perfect shifts (at most `bonusMax` bonus). Each

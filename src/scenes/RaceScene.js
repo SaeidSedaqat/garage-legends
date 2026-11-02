@@ -268,7 +268,7 @@ export class RaceScene extends Phaser.Scene {
     }
     this.updateTree();
 
-    // revving before launch: the needle climbs while held and falls when released
+    // revving before launch: the revs climb while held and falls when released
     if (!p.launched) {
       const target = this.holding ? 1 : IDLE_RPM;
       p.rpm += Math.sign(target - p.rpm) * Math.min(Math.abs(target - p.rpm), (this.holding ? SIM.revRate : SIM.revFall) * dt);
@@ -353,11 +353,11 @@ export class RaceScene extends Phaser.Scene {
         const near = p.rpm >= z.good[0] - 0.15, aim = (z.perfect[0] + z.perfect[1]) / 2;
         this.slow = near ? 0.35 : 1;
         if (!this.freeze && p.rpm >= aim && p.shifting <= 0) this.freeze = 'down';
-        if (this.freeze) return [btn, { title: '2/3 · Shift', text: 'The needle is in the GREEN zone. Tap now to SHIFT!', frozen: true }];
+        if (this.freeze) return [btn, { title: '2/3 · Shift', text: 'The rev bar is in the GREEN zone. Tap now to SHIFT!', frozen: true }];
         return [tach, {
           title: '2/3 · Shift',
-          text: near ? 'Here it comes… the needle is heading for the GREEN zone.'
-            : 'Each gear runs out of revs. You shift up when the needle reaches the GREEN zone on the rev meter.',
+          text: near ? 'Here it comes… the revs are climbing into the GREEN zone.'
+            : 'Each gear runs out of revs. You shift up when the rev bar reaches its GREEN zone.',
         }];
       }
       case 'shift2': {

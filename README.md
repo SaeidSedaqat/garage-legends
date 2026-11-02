@@ -17,12 +17,13 @@ Close the black window to stop it.
 - **Garage:** tap your car to earn cash (4% chance of a ×5 critical). A Golden Wrench appears every
   1–2 minutes: tap it for 30× a tap.
 - **Screen layout:** the garage fills the left 70%, the panel the right 30% (on phones held
-  upright the panel sits along the bottom).
+  upright the panel sits along the bottom). The panel and its cards scale with the window.
   - **‹ ›** beside the car flip through every car. Owned ones are driven straight away; others
     go on show with their stats and a Buy button (arrow keys work too).
   - **RACE** (bottom left, or R) starts the next race straight away: no menus. It shows the race
-    number and its recommended PR (⚠ when your car is well short). The first 10 races have no
-    wait; after that RACE cools down for 15 s, 5 s longer each race up to 1 minute from race 20.
+    number, its distance and its recommended PR (⚠ when your car is well short). The first 10
+    races have no wait; after that RACE cools down for 15 s, 5 s longer each race up to 1 minute
+    from race 20.
     **Race now** beside it plays a rewarded ad to skip the wait.
 - **Upgrades** (the panel): tap one to buy its next level. Each row says what the part does and
   how much one level adds.
@@ -37,13 +38,16 @@ Close the black window to stop it.
 - **Race:** press and hold the button (or Space) when the amber lights come on, then let go the
   instant the light turns GREEN: the launch is scored on reaction time (under 0.2 s is perfect).
   Letting go early is a jump start. Tap to shift when the
-  needle is in the green zone. The gearing is set per race distance, so shifts come through
+  rev bar is in the green zone (its bright middle is a perfect shift). The gearing is set per race distance, so shifts come through
   most of the race.
 - **Nitro (top gear):** the button turns blue. Each tap fires a strong 2.5 s burst. Tap again
   when the button flashes white at the end of a burst to **chain** it for a bigger boost;
   tapping any earlier wastes the charge. You get a few charges (2–4 on a quarter mile): enough
   for about half the way to the line, plus one for a perfect launch and one for every two
   perfect shifts (two bonus charges at most). Rivals use nitro too.
+- **Dash:** a round speedometer (speed in the middle; the arc fills up to the car's top speed
+  and turns blue during nitro) with the rev bar running out of its side: gear, shift zones and
+  red line. The bar turns green in the shift zone and red on the limiter.
 - **Feel:** speed streaks grow with speed, the camera pushes in during a nitro burst (both off
   with Reduce motion), a tag at the screen edge shows how far the rival is when it's off screen,
   and a finish closer than 4 m plays out in slow motion.
@@ -54,8 +58,11 @@ Close the black window to stop it.
   an upgrade or two; a loss keeps the same race (and pays 25% of the prize). Early races ask
   for up to 22% more PR than that curve (fading out by race 30), so the starter cars are matched
   and some races are lost until you upgrade. A new rival takes over every 2–3 races at first
-  (`LADDER.debut`), half-mile races start at race 4 and a mile comes every third race from race
-  8. Coastal opens at race 7 and City at race 16; from then on the races take turns across the
+  (`LADDER.debut`). The first 3 races are quarter miles; after that the distance depends on your
+  car: a longer race only comes up when the car still gains speed for most of it (95% of top
+  speed past 72% of a half mile, or 55% of a mile: `LADDER.distFit`). The starter cars stay on
+  quarter miles, the Hikari to the Sora add the half, and the mile opens with the Furia; a tune
+  that only adds acceleration hits top speed early and drops back to shorter races. Coastal opens at race 7 and City at race 16; from then on the races take turns across the
   open venues. Every win is a Reputation star: each adds 5% to tap income,
   and star milestones pay out cash (62★ also gives the "Garage Legend" title). Race 62 unlocks
   the Apex Zero; past PR 1290 the ladder only climbs 1% a race and five top rivals take turns.
@@ -95,48 +102,50 @@ while you're away (up to 2 hours).
 
 ## Balancing
 
-Open http://localhost:8080/tools/balance.html. It shows, for races 1–60, the win rate of a player
-at the recommended PR with Good launches, shifts and nitro (target 55–85%; the ladder sits at
-63–88%), runs the pacing bot, and works out `LADDER.ratio` (rival PR ÷ recommended PR for a ~70%
-win, per rival and distance). After changing cars, rivals or sim constants in `src/data.js`,
-re-run it and copy the ratios back. Each roster rival's `pr` is the recommended PR in the middle
-of their stint (from `debut`); the ratios are worked out there.
+Open http://localhost:8080/tools/balance.html. It shows, for races 1–60, the win rate at the
+recommended PR for three drivers, runs the pacing bot, and works out `LADDER.ratio` (rival PR ÷
+recommended PR at which a sharp driver wins ~65%, per rival and distance). After changing cars,
+rivals or sim constants in `src/data.js`, re-run it and copy the ratios back. Each roster rival's
+`pr` is the recommended PR in the middle of their stint (from `debut`); the ratios are worked out
+there.
 
-Skill and upgrades both matter. At a race's recommended PR:
+Rivals are tuned against a **sharp** driver: a perfect launch, every other shift perfect, nitro
+fired (not chained). Skill and upgrades both matter. At a race's recommended PR:
 
 | Driving | Win rate |
 |---|---|
-| Perfect launches, shifts and chained nitro | ~100% |
-| Good launches and shifts, nitro fired | ~70% |
-| Good but no nitro | ~16–21% |
-| A few early shifts | ~40% (70–100% with 10% more PR) |
-| Sloppy (poor launch, every other shift early) | ~12% |
+| Flawless: perfect launches and shifts, chained nitro | ~100% (~80% with 10% less PR) |
+| Sharp (the target) | ~65% (~95% with 10% more PR) |
+| Good launches and shifts, nitro fired | ~10% (~30% with 10% more PR, ~70% with 20% more) |
+
+So a good-but-not-sharp player needs a car 15–20% over the recommendation, and even a flawless
+one can't skip upgrades for long.
 
 Rivals' form varies a little from race to race (`SIM.aiForm`), so results aren't all-or-nothing.
 
-The economy is tuned with the pacing bot (`pacing()` in `tools/balance.js`). The bot taps,
-spends on whatever adds the most PR per dollar or saves for the next car, and races whenever
-RACE is ready and its PR is within 15% of the recommendation:
+The economy is tuned with the pacing bot (`pacing()` in `tools/balance.js`). The bot taps at
+2 taps/s, buys the next car as soon as it can, otherwise whatever adds the most PR per dollar,
+and races whenever RACE is ready and its PR is within 10% of the recommendation (`edge` makes
+it a better driver):
 
-| Milestone | Bot (1.5 / 2 / 2.5 taps/s) | Watching every skip ad |
-|---|---|---|
-| Car 2 | 6 min | 6 min |
-| Race 10 | 7 min | 7 min |
-| Car 3 | 11 min | 9 min |
-| Race 30 | 32 min | 17 min |
-| Race 40 | 49 min | 22 min |
-| Race 62 (PR ~985, Apex Zero) | 1h40 / 1h43 / 1h59 | 61 min |
+| Milestone | Sharp driver | Flawless driver | Sharp, watching every skip ad |
+|---|---|---|---|
+| Race 10 | 8 min | 6 min | 8 min |
+| Car 2 (Ronin, $1,200) | 10 min | 9 min | 10 min |
+| Car 3 (Hikari, $6,000) | 22 min | 17 min | 16 min |
+| Race 30 | 39 min | 32 min | 23 min |
+| Race 40 | 54 min | 48 min | 35 min |
+| Race 62 (Apex Zero) | 2h30 | 2h05 | 2h15 |
 
-The first 10 races come as fast as upgrades allow (a win every 30–90 s); from about race 20 to
-50 the 1-minute cooldown sets the pace (a race every 1.5–2 minutes, with upgrades bought in
-between); after that the next car's price does. Most waits between two wins stay under 6
-minutes; the longest is one wait of up to ~20 minutes around race 59, saving for the next car.
+Up to about race 50 the cooldown sets the pace; after that the next car's price does, with a
+few waits of 10–17 minutes around races 47–62 saving for the next car.
 
 To get there:
 - A win pays `LADDER.reward` × (rec ÷ 90)^`rewardPow`, with rec from the curve before the early
   lift ($60 at race 1, $1,800 at race 30, $79K at race 62); star milestones top it up.
-- Car prices: Hikari $2,500, Kodiak $18,000, Valken $40,000, Sora $120,000, Furia $220,000.
-- Part prices are set per car (`upgradeBase`).
+- Car prices: Ronin $1,200, Hikari $6,000, Bulldog $20,000, Kodiak $45,000, Valken $100,000,
+  Sora $300,000, Furia $550,000, Volta $2.5M, Apex $6M.
+- Part prices are set per car (`upgradeBase` × `PART_COST`, ×1.8 a level).
 - Tap Power and Pit Crew never max out. Level n costs `cost × n^pow` (`TAP`, `CREW` in
   `src/data.js`), so a level stays within a minute or two of income and gets bought often.
 

@@ -36,7 +36,7 @@ const vMaxOf = spec => (90 + 1.6 * spec.topSpeed) * 0.44704;
 // curve (a few passes, since shifting changes the curve); the engine's power is unchanged.
 const gearCache = new Map();
 function gearEnds(spec, distance) {
-  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${spec.nitroPower || 0}|${distance}|${SIM.lastShiftAt}`;
+  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${spec.nitroPower || 0}|${distance}|${SIM.lastShiftAt}|${SIM.drag}`;
   if (!gearCache.has(key)) {
     const n = spec.gears, vMax = vMaxOf(spec), shiftAt = plannedShift(spec, 'good').rpm;
     let ends = null;
@@ -195,7 +195,7 @@ export function step(r, dt, distance) {
   }
   let a = 0;
   if (r.shifting > 0) r.shifting -= dt;
-  else a = r.a0 * (1.25 - (0.35 * r.gear) / Math.max(1, n - 1)) * Math.max(-0.4, 1 - Math.pow(r.v / vMax, 2.2)) * mult;
+  else a = r.a0 * (1.25 - (0.35 * r.gear) / Math.max(1, n - 1)) * Math.max(-0.4, 1 - Math.pow(r.v / vMax, SIM.drag)) * mult;
   r.a = a;
   r.v = Math.max(0, r.v + a * dt);
   r.dist += r.v * dt;
@@ -275,4 +275,25 @@ export function aiInputs(ai, rand) {
   // slightly worse run can still win
   const form = gauss(rand, 1, SIM.aiForm);
   return { reaction: Math.max(0.12, gauss(rand, ai.reaction[0], ai.reaction[1])), launchQ, shiftQ: i => shifts[i], nitroQ, form };
+}
+
+// How far into a race of `distance` (0–1) a car reaches 95% of its top speed with Good
+// driving and no nitro. The ladder only picks a longer race once the car still gains speed
+// for most of it.
+const topCache = new Map();
+export function topSpeedAt(spec, distance) {
+  const key = `${spec.launch}|${spec.accel}|${spec.topSpeed}|${spec.gears}|${spec.shiftWindow}|${spec.trans || 0}|${spec.tires || 0}|${distance}|${SIM.drag}`;
+  if (!topCache.has(key)) {
+    const r = makeRacer(spec, distance), dt = SIM.dt, target = plannedShift(spec, 'good');
+    let at = null;
+    for (let t = 0; !r.finished && at == null && t < 120; t += dt) {
+      if (!r.launched && t >= 0.3) launch(r, 0.3, false, scriptedLaunch('good', 0.3));
+      if (r.launched && r.shifting <= 0 && !topGear(r) && ready(r, target)) shift(r);
+      step(r, dt, distance);
+      if (r.v >= 0.95 * r.vMax) at = r.dist;
+    }
+    if (topCache.size > 500) topCache.clear();
+    topCache.set(key, at == null ? 1 : at / distance);
+  }
+  return topCache.get(key);
 }
